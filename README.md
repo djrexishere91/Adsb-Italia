@@ -1,24 +1,31 @@
-📡 ADSB-Italia Network
-Rete collaborativa ADS-B con server a Fiscaglia (FE).
+# 📡 ADSB-Italia Network
+Rete collaborativa ADS-B con server a **Fiscaglia (FE)**.
 
-🗺️ Mappa Live
+---
+
+### 🗺️ Mappa Live
 https://adsb.djrexishere.it/combine1090/
 
-🚀 Installazione rapida
+---
+
+### 🚀 Installazione rapida
 Copia e incolla questo comando nel terminale:
 
-curl -L https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/install.sh | sudo bash
+`curl -L https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/install.sh | sudo bash`
 
-🛠️ Comandi di controllo
-Stato ADS-B:
-sudo systemctl status adsb-italia
+---
 
-Stato MLAT:
-sudo systemctl status mlat-italia
+### 🛠️ Comandi di controllo
 
-🔍 Cosa fa lo script?
-Installa socat e python3.
+**Stato ADS-B:**
+`sudo systemctl status adsb-italia`
 
-Compila mlat-client.
+**Stato MLAT:**
+`sudo systemctl status mlat-italia`
 
-Collega i tuoi dati al server centrale.
+---
+
+### 🔍 Cosa fa lo script?
+* Installa **socat** e **python3**.
+* Compila **mlat-client**.
+* Collega i tuoi dati al server centrale.
