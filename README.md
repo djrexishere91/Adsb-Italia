@@ -1,3 +1,4 @@
+
 # 📡 ADSB-Italia Network
 
 Benvenuto nella rete **ADSB-Italia**! Questo progetto nasce per creare una rete collaborativa di stazioni di ricezione ADS-B per il tracciamento dei voli nei cieli italiani. Il server di coordinamento e la mappa centrale sono situati a **Fiscaglia (FE)**.
@@ -6,7 +7,7 @@ Partecipando alla rete, i tuoi dati contribuiranno alla triangolazione **MLAT**,
 
 ## 🗺️ Visualizza la Mappa Live
 Puoi vedere tutti i dati aggregati della rete qui:
-👉 **[https://adsb.djrexishere.it/combine1090/](https://adsb.djrexishere.it/combine1090/)**
+👉 [https://adsb.djrexishere.it/combine1090/](https://adsb.djrexishere.it/combine1090/)
 
 ---
 
@@ -23,6 +24,8 @@ Copia e incolla il seguente comando nel tuo terminale:
 
 ```bash
 curl -L [https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/install.sh](https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/install.sh) | sudo bash
+
+
 🛠️ Comandi Utili
 Dopo l'installazione, puoi verificare lo stato dei servizi con questi comandi:
 
