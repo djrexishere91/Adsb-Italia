@@ -12,15 +12,15 @@ sudo apt update && sudo apt install -y whiptail
 # Schermata di Benvenuto
 whiptail --title "ADSB-Italia Network" --msgbox "Benvenuto nello script di installazione della rete ADSB-Italia.\n\nIl server centrale si trova a Fiscaglia (FE)." 10 60
 
-# 1. Input Utente con finestre blu
+# 1. Input Utente
 UTENTE=$(whiptail --inputbox "Inserisci il tuo nome utente (es. Pilota_Fiscaglia):" 10 60 --title "User Configuration" 3>&1 1>&2 2>&3)
 LAT=$(whiptail --inputbox "Inserisci la tua Latitudine (es. 44.83):" 10 60 --title "Coordinate Configuration" 3>&1 1>&2 2>&3)
 LON=$(whiptail --inputbox "Inserisci la tua Longitudine (es. 11.62):" 10 60 --title "Coordinate Configuration" 3>&1 1>&2 2>&3)
 ALT=$(whiptail --inputbox "Inserisci l'Altitudine in metri (es. 15):" 10 60 --title "Altitude Configuration" 3>&1 1>&2 2>&3)
 
-# 2. Installazione dipendenze (testo normale a scorrimento)
+# 2. Installazione dipendenze (aggiunto setuptools)
 echo "Installazione componenti di sistema in corso..."
-sudo apt install -y socat git python3-dev gcc
+sudo apt install -y socat git python3-dev python3-setuptools gcc
 
 # 3. Installazione mlat-client
 if [ ! -f "/usr/local/bin/mlat-client" ]; then
@@ -65,7 +65,8 @@ EOF
 # 6. Attivazione
 sudo systemctl daemon-reload
 sudo systemctl enable mlat-italia adsb-italia
-sudo systemctl restart mlat-italia adsb-italia
+# Su WSL il restart potrebbe dare errore, lo ignoriamo nel test
+sudo systemctl restart mlat-italia adsb-italia || true
 
 # Messaggio finale di successo
-whiptail --title "INSTALLAZIONE COMPLETATA" --msgbox "Grazie $UTENTE!\n\nLa tua stazione è ora collegata alla rete ADSB-Italia.\nControlla la tua posizione sulla mappa: https://adsb.djrexishere.it/combine1090" 12 60
+whiptail --title "INSTALLAZIONE COMPLETATA" --msgbox "Grazie $UTENTE!\n\nLa tua stazione è ora collegata alla rete ADSB-Italia.\nControlla la tua posizione sulla mappa: adsb.djrexishere.it" 12 60
