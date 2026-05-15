@@ -8,6 +8,7 @@ SITE_URL="https://adsbitalia.djrexishere.it"
 MLAT_REPO="https://github.com/wiedehopf/mlat-client.git"
 MLAT_VENV="/opt/adsbitalia-mlat"
 MLAT_BIN="${MLAT_VENV}/bin/mlat-client"
+CONFIG_FILE="/etc/adsbitalia/feeder.conf"
 REGISTER_URL="https://adsbitalia.djrexishere.it/api/register-feeder"
 REGISTER_TOKEN="6oAEgkdPAYCn1QpgcU8pCNjb_pM3jBr6Zb9j2hKHnPZ4Obnn-RYrwz1o1kl43pEu"
 PUBLIC_IP_SERVICES=("https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com")
@@ -56,6 +57,18 @@ collect_user_data() {
     [[ -n "$LAT" ]] || { echo "Latitude cannot be empty."; exit 1; }
     [[ -n "$LON" ]] || { echo "Longitude cannot be empty."; exit 1; }
     [[ -n "$ALT" ]] || { echo "Altitude cannot be empty."; exit 1; }
+}
+
+save_config() {
+    msg "Saving local feeder configuration..."
+    sudo install -d -m 755 /etc/adsbitalia
+    sudo bash -c "cat > '$CONFIG_FILE' <<EOF
+UTENTE=$(printf '%q' "$UTENTE")
+LAT=$(printf '%q' "$LAT")
+LON=$(printf '%q' "$LON")
+ALT=$(printf '%q' "$ALT")
+EOF"
+    sudo chmod 600 "$CONFIG_FILE"
 }
 
 check_local_feed() {
@@ -188,6 +201,7 @@ main() {
     install_packages
     show_welcome
     collect_user_data
+    save_config
     check_local_feed
     install_mlat_client
     register_feeder
