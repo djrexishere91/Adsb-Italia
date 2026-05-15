@@ -4,7 +4,7 @@ Rete collaborativa ADS-B con server a **Fiscaglia (FE)**.
 ---
 
 ### 🗺️ Mappa Live
-https://adsb.djrexishere.it/combine1090/
+https://adsbitalia.djrexishere.it/combine1090/
 
 ---
 
