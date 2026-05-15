@@ -196,5 +196,5 @@ main() {
     show_status
 }
 
-main "$@"
+
 main "$@"
