@@ -8,6 +8,7 @@ SITE_URL="https://adsbitalia.djrexishere.it"
 MLAT_REPO="https://github.com/wiedehopf/mlat-client.git"
 MLAT_BIN="/usr/local/bin/mlat-client"
 REGISTER_URL="https://adsbitalia.djrexishere.it/api/register-feeder"
+REGISTER_TOKEN="6oAEgkdPAYCn1QpgcU8pCNjb_pM3jBr6Zb9j2hKHnPZ4Obnn-RYrwz1o1kl43pEu"
 PUBLIC_IP_SERVICES=("https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com")
 
 require_cmd() {
@@ -120,6 +121,7 @@ register_feeder() {
 
     HTTP_CODE=$(curl -kfsS -o /tmp/adsbitalia-register.out -w '%{http_code}' \
         -H 'Content-Type: application/json' \
+        -H "X-Register-Token: ${REGISTER_TOKEN}" \
         -d "$PAYLOAD" \
         "$REGISTER_URL" || true)
 
