@@ -1,135 +1,229 @@
-ADSB-Italia Network
-Collaborative ADS-B feeder network with a central server in Fiscaglia (FE), Italy. The project lets contributors forward local ADS-B data and MLAT results to the ADSB-Italia aggregation server using a dedicated mlat-client virtual environment and two systemd services.
+# ADSB-Italia Network
 
-Live map
-Open the live map
+Collaborative ADS-B feeder network with a central server in Fiscaglia (FE), Italy.
 
-What this project does
-The installer configures a feeder to send Beast data to the ADSB-Italia server and runs a separate MLAT client that connects to the central MLAT server.
- The setup is designed to avoid interfering with an existing local ADS-B stack by keeping the MLAT client inside its own virtual environment and service.
+ADSB-Italia Network allows contributors to forward local ADS-B data and MLAT results to the ADSB-Italia aggregation server using dedicated systemd services and a separate `mlat-client` environment.
 
-Main components
-install.sh — first installation of the feeder node.
+## Live Map
 
-update.sh — change feeder name, latitude, longitude, and altitude without reinstalling everything.
+[Open the live map](https://adsbitalia.djrexishere.it/combine1090/)
 
-uninstall.sh — remove the ADSB-Italia local services and dedicated MLAT virtual environment.
+---
 
-Quick install
-Run this command on the feeder host:
+# Italiano
 
-bash
+## Panoramica
+
+ADSB-Italia Network è una rete collaborativa ADS-B con server centrale a Fiscaglia (FE), Italia.
+
+Permette ai partecipanti di condividere i propri dati ADS-B locali e i risultati MLAT verso il server centrale ADSB-Italia, senza stravolgere la propria installazione esistente.
+
+## Funzioni principali
+
+- Inoltro dei dati Beast al server ADSB-Italia
+- Connessione MLAT separata tramite `mlat-client`
+- Servizi systemd dedicati
+- Configurazione semplice tramite script
+- Possibilità di aggiornare i dati del feeder senza reinstallare tutto
+
+## Script disponibili
+
+- `install.sh` — installazione iniziale del feeder
+- `update.sh` — aggiornamento di nome feeder, coordinate e altitudine
+- `uninstall.sh` — rimozione dei servizi ADSB-Italia e dell'ambiente MLAT dedicato
+
+## Installazione rapida
+
+Esegui questo comando sul feeder:
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/install.sh | sudo bash
-The installer checks for a local Beast feed on 127.0.0.1:30005, installs required packages, installs mlat-client in /opt/adsbitalia-mlat, attempts remote feeder registration, and creates the adsb-italia.service and mlat-italia.service systemd units.
+```
 
-Requirements
-Before running the installer, make sure the feeder host has:
+## Requisiti
 
-Debian/Ubuntu or Arch Linux.
+Prima di eseguire l'installazione, assicurati di avere:
 
-A working local ADS-B decoder exposing Beast data on 127.0.0.1:30005.
+- Debian/Ubuntu oppure Arch Linux
+- Un decoder ADS-B locale attivo
+- Output Beast disponibile su `127.0.0.1:30005`
+- Connessione Internet attiva
+- Privilegi `sudo`
 
-Internet access for package installation, GitHub download, and feeder registration.
+## Cosa fa lo script di installazione
 
-sudo privileges.
+Lo script:
 
-Management commands
-Service status
-bash
+- verifica la presenza di un feed Beast locale su `127.0.0.1:30005`
+- installa i pacchetti necessari
+- installa `mlat-client` in un ambiente dedicato
+- registra il feeder sul server ADSB-Italia
+- crea e abilita i servizi systemd locali
+
+## Comandi di gestione
+
+### Stato dei servizi
+
+```bash
 sudo systemctl status adsb-italia.service
 sudo systemctl status mlat-italia.service
-Follow logs
-bash
+```
+
+### Visualizzare i log in tempo reale
+
+```bash
 sudo journalctl -u adsb-italia.service -f
 sudo journalctl -u mlat-italia.service -f
-Update feeder details
-Use this when the feeder name, coordinates, or altitude change:
+```
 
-bash
+## Aggiornare i dati del feeder
+
+Se vuoi cambiare nome feeder, coordinate o altitudine, esegui:
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/update.sh | sudo bash
-update.sh reads the current values from /etc/adsbitalia/feeder.conf, proposes them as defaults, updates the local config, refreshes remote registration, rewrites the local systemd units, and restarts the services.
+```
 
-Uninstall
-Use this to remove the ADSB-Italia feeder integration from the local machine:
+Questo script aggiorna i dati salvati localmente e rigenera la configurazione necessaria senza reinstallare tutto.
 
-bash
+## Disinstallazione
+
+Per rimuovere ADSB-Italia dal feeder:
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/uninstall.sh | sudo bash
-The uninstall script stops and disables the ADSB-Italia systemd services, removes their unit files, reloads systemd, and deletes the dedicated MLAT virtual environment.
+```
 
-Files created locally
-Path	Purpose
-/opt/adsbitalia-mlat	Dedicated Python virtual environment for mlat-client.
-/etc/adsbitalia/feeder.conf	Saved feeder name, latitude, longitude, and altitude.
-/etc/systemd/system/mlat-italia.service	MLAT client service.
-/etc/systemd/system/adsb-italia.service	ADS-B forwarding service.
-English
-Overview
-ADSB-Italia Network is a collaborative ADS-B and MLAT aggregation project with a central server in Fiscaglia (FE), Italy. Contributors can connect their receiver to the network and feed both Beast data and MLAT data to the central server.
+La disinstallazione rimuove solo l'integrazione ADSB-Italia e non il decoder ADS-B locale già presente nel sistema.
 
-Installation
-Run:
+## File creati localmente
 
-bash
-curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/install.sh | sudo bash
-During installation, the script asks for feeder name, latitude, longitude, and altitude, verifies that a local Beast feed is available on 127.0.0.1:30005, installs dependencies, installs a dedicated mlat-client, attempts feeder registration through the ADSB-Italia API, and enables the local services.
+| Percorso | Descrizione |
+|---|---|
+| `/opt/adsbitalia-mlat` | Ambiente Python dedicato a `mlat-client` |
+| `/etc/adsbitalia/feeder.conf` | Configurazione del feeder |
+| `/etc/systemd/system/mlat-italia.service` | Servizio systemd MLAT |
+| `/etc/systemd/system/adsb-italia.service` | Servizio systemd ADS-B |
 
-Update
-Run:
+## Risoluzione problemi
 
-bash
-curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/update.sh | sudo bash
-This updates feeder metadata without a full reinstall. It keeps the existing installation, reloads the saved values from /etc/adsbitalia/feeder.conf, lets the user change them, updates remote registration, rewrites the systemd units, and restarts the services.
+Comandi utili per la diagnostica:
 
-Uninstall
-Run:
-
-bash
-curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/uninstall.sh | sudo bash
-This removes only the ADSB-Italia integration from the local machine. It does not remove the user's local ADS-B decoder such as readsb or dump1090.
-
-Troubleshooting
-Useful commands:
-
-bash
+```bash
 sudo systemctl status adsb-italia.service
 sudo systemctl status mlat-italia.service
 sudo journalctl -u adsb-italia.service -n 100 --no-pager
 sudo journalctl -u mlat-italia.service -n 100 --no-pager
-If MLAT is connected correctly, the central MLAT server should report an active client and synchronization activity in its logs.
-​
+```
 
-Italiano
-Panoramica
-ADSB-Italia Network è una rete collaborativa ADS-B e MLAT con server centrale a Fiscaglia (FE). I partecipanti possono collegare il proprio ricevitore alla rete e inviare sia i dati Beast sia i dati MLAT al server centrale.
+Verifica anche che il tuo feeder locale stia effettivamente esponendo il feed Beast su `127.0.0.1:30005`.
 
-Installazione
-Eseguire:
+---
 
-bash
+# English
+
+## Overview
+
+ADSB-Italia Network is a collaborative ADS-B feeder network with a central server located in Fiscaglia (FE), Italy.
+
+It allows contributors to forward local ADS-B data and MLAT results to the ADSB-Italia aggregation server without disrupting an existing local ADS-B setup.
+
+## Main features
+
+- Beast data forwarding to the ADSB-Italia server
+- Separate MLAT connection through `mlat-client`
+- Dedicated systemd services
+- Simple scripted installation
+- Feeder details can be updated without a full reinstall
+
+## Available scripts
+
+- `install.sh` — initial feeder installation
+- `update.sh` — update feeder name, coordinates, and altitude
+- `uninstall.sh` — remove ADSB-Italia services and the dedicated MLAT environment
+
+## Quick install
+
+Run this command on the feeder host:
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/install.sh | sudo bash
-Durante l'installazione, lo script chiede nome feeder, latitudine, longitudine e altitudine, verifica la presenza di un feed Beast locale su 127.0.0.1:30005, installa le dipendenze, installa un mlat-client dedicato, tenta la registrazione del feeder tramite API ADSB-Italia e abilita i servizi locali.
+```
 
-Aggiornamento
-Eseguire:
+## Requirements
 
-bash
+Before installing, make sure you have:
+
+- Debian/Ubuntu or Arch Linux
+- A working local ADS-B decoder
+- Beast output available on `127.0.0.1:30005`
+- Internet connectivity
+- `sudo` privileges
+
+## What the installer does
+
+The installation script:
+
+- checks for a local Beast feed on `127.0.0.1:30005`
+- installs the required packages
+- installs `mlat-client` in a dedicated environment
+- registers the feeder with the ADSB-Italia server
+- creates and enables the required local systemd services
+
+## Management commands
+
+### Service status
+
+```bash
+sudo systemctl status adsb-italia.service
+sudo systemctl status mlat-italia.service
+```
+
+### Follow logs
+
+```bash
+sudo journalctl -u adsb-italia.service -f
+sudo journalctl -u mlat-italia.service -f
+```
+
+## Update feeder details
+
+If you need to change feeder name, coordinates, or altitude, run:
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/update.sh | sudo bash
-Questo script aggiorna i metadati del feeder senza reinstallare tutto da capo. Mantiene l'installazione esistente, rilegge i valori salvati in /etc/adsbitalia/feeder.conf, permette di modificarli, aggiorna la registrazione remota, riscrive i file systemd e riavvia i servizi.
+```
 
-Disinstallazione
-Eseguire:
+This updates the locally saved feeder information and refreshes the related configuration without requiring a full reinstall.
 
-bash
+## Uninstall
+
+To remove ADSB-Italia from the feeder host:
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/uninstall.sh | sudo bash
-Questo rimuove soltanto l'integrazione ADSB-Italia dalla macchina locale. Non rimuove il decoder ADS-B locale dell'utente, come readsb o dump1090.
+```
 
-Risoluzione problemi
-Comandi utili:
+The uninstall process removes only the ADSB-Italia integration and does not remove the local ADS-B decoder already installed on the system.
 
-bash
+## Local files
+
+| Path | Description |
+|---|---|
+| `/opt/adsbitalia-mlat` | Dedicated Python environment for `mlat-client` |
+| `/etc/adsbitalia/feeder.conf` | Feeder configuration |
+| `/etc/systemd/system/mlat-italia.service` | MLAT systemd service |
+| `/etc/systemd/system/adsb-italia.service` | ADS-B forwarding systemd service |
+
+## Troubleshooting
+
+Useful diagnostic commands:
+
+```bash
 sudo systemctl status adsb-italia.service
 sudo systemctl status mlat-italia.service
 sudo journalctl -u adsb-italia.service -n 100 --no-pager
 sudo journalctl -u mlat-italia.service -n 100 --no-pager
-Se la connessione MLAT è corretta, il server MLAT centrale dovrebbe mostrare un client attivo e attività di sincronizzazione nei propri log.
-​
+```
+
+Also make sure your local feeder is actually exposing Beast data on `127.0.0.1:30005`.
