@@ -6,7 +6,8 @@ MLAT_PORT="41113"
 FEED_PORT="30004"
 SITE_URL="https://adsbitalia.djrexishere.it"
 MLAT_REPO="https://github.com/wiedehopf/mlat-client.git"
-MLAT_BIN="/usr/local/bin/mlat-client"
+MLAT_VENV="/opt/adsbitalia-mlat"
+MLAT_BIN="${MLAT_VENV}/bin/mlat-client"
 REGISTER_URL="https://adsbitalia.djrexishere.it/api/register-feeder"
 REGISTER_TOKEN="6oAEgkdPAYCn1QpgcU8pCNjb_pM3jBr6Zb9j2hKHnPZ4Obnn-RYrwz1o1kl43pEu"
 PUBLIC_IP_SERVICES=("https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com")
@@ -25,13 +26,13 @@ detect_distro() {
     elif [[ -f /etc/debian_version ]]; then
         DISTRO="debian"
     else
-        echo "Distribuzione non supportata automaticamente. Supportati: Debian/Ubuntu, Arch Linux."
+        echo "Unsupported distribution. Supported: Debian/Ubuntu, Arch Linux."
         exit 1
     fi
 }
 
 install_packages() {
-    msg "Installazione dipendenze..."
+    msg "Installing dependencies..."
     if [[ "$DISTRO" == "arch" ]]; then
         sudo pacman -Syu --noconfirm --needed whiptail curl git socat python python-pip base-devel
     else
@@ -42,56 +43,50 @@ install_packages() {
 
 show_welcome() {
     whiptail --title "ADSB-Italia Network" \
-        --msgbox "Benvenuto nello script di installazione ADSB-Italia.\n\nQuesto script configura:\n- il feed ADS-B verso la VPS centrale\n- il client MLAT verso il server MLAT centrale\n- la registrazione automatica del feeder sulla VPS\n\nVPS: ${SERVER_IP}" 16 72
+        --msgbox "Welcome to the ADSB-Italia installer.\n\nThis script will configure:\n- ADS-B data forwarding\n- MLAT client setup\n- automatic feeder registration\n\nNo existing MLAT installation will be modified outside the dedicated service created by this script." 16 72
 }
 
 collect_user_data() {
-    UTENTE=$(whiptail --inputbox "Inserisci il tuo nome utente/feed name:" 10 60 --title "User Configuration" 3>&1 1>&2 2>&3) || exit 1
-    LAT=$(whiptail --inputbox "Inserisci la tua latitudine decimale (es. 44.8300):" 10 60 --title "Coordinate Configuration" 3>&1 1>&2 2>&3) || exit 1
-    LON=$(whiptail --inputbox "Inserisci la tua longitudine decimale (es. 11.6200):" 10 60 --title "Coordinate Configuration" 3>&1 1>&2 2>&3) || exit 1
-    ALT=$(whiptail --inputbox "Inserisci l'altitudine in metri (es. 15):" 10 60 --title "Altitude Configuration" 3>&1 1>&2 2>&3) || exit 1
+    UTENTE=$(whiptail --inputbox "Enter your feeder name:" 10 60 --title "User Configuration" 3>&1 1>&2 2>&3) || exit 1
+    LAT=$(whiptail --inputbox "Enter your decimal latitude (example: 44.8300):" 10 60 --title "Coordinates" 3>&1 1>&2 2>&3) || exit 1
+    LON=$(whiptail --inputbox "Enter your decimal longitude (example: 11.6200):" 10 60 --title "Coordinates" 3>&1 1>&2 2>&3) || exit 1
+    ALT=$(whiptail --inputbox "Enter altitude in meters (example: 15):" 10 60 --title "Altitude" 3>&1 1>&2 2>&3) || exit 1
 
-    [[ -n "$UTENTE" ]] || { echo "Nome utente vuoto."; exit 1; }
-    [[ -n "$LAT" ]] || { echo "Latitudine vuota."; exit 1; }
-    [[ -n "$LON" ]] || { echo "Longitudine vuota."; exit 1; }
-    [[ -n "$ALT" ]] || { echo "Altitudine vuota."; exit 1; }
+    [[ -n "$UTENTE" ]] || { echo "Feeder name cannot be empty."; exit 1; }
+    [[ -n "$LAT" ]] || { echo "Latitude cannot be empty."; exit 1; }
+    [[ -n "$LON" ]] || { echo "Longitude cannot be empty."; exit 1; }
+    [[ -n "$ALT" ]] || { echo "Altitude cannot be empty."; exit 1; }
 }
 
 check_local_feed() {
-    msg "Verifica feed locale su localhost:30005..."
+    msg "Checking local Beast feed on localhost:30005..."
     if ! timeout 3 bash -c '</dev/tcp/127.0.0.1/30005' 2>/dev/null; then
-        whiptail --title "Feed locale non trovato" \
-            --msgbox "Non trovo nessun feed Beast locale su localhost:30005.\n\nInstalla o avvia prima readsb/dump1090 e poi rilancia lo script." 12 70
+        whiptail --title "Local feed not found" \
+            --msgbox "No local Beast feed was found on localhost:30005.\n\nPlease start readsb or dump1090 first, then run this installer again." 12 70
         exit 1
     fi
 }
 
 install_mlat_client() {
     if [[ -x "$MLAT_BIN" ]]; then
-        msg "mlat-client già presente in $MLAT_BIN"
+        msg "Dedicated mlat-client already present in $MLAT_BIN"
         return
     fi
 
-    msg "Installazione mlat-client..."
+    msg "Installing dedicated mlat-client virtual environment..."
     TMPDIR=$(mktemp -d)
     trap 'rm -rf "$TMPDIR"' EXIT
-    git clone "$MLAT_REPO" "$TMPDIR/mlat-client"
-    cd "$TMPDIR/mlat-client"
 
-    if [[ "$DISTRO" == "arch" ]]; then
-        sudo python -m pip install .
-    else
-        sudo python3 -m pip install .
-    fi
+    sudo mkdir -p "$MLAT_VENV"
+    sudo python3 -m venv "$MLAT_VENV"
+    sudo "$MLAT_VENV/bin/pip" install --upgrade pip setuptools wheel
+
+    git clone "$MLAT_REPO" "$TMPDIR/mlat-client"
+    sudo "$MLAT_VENV/bin/pip" install "$TMPDIR/mlat-client"
 
     if ! [[ -x "$MLAT_BIN" ]]; then
-        ALT_BIN=$(command -v mlat-client || true)
-        if [[ -n "$ALT_BIN" ]]; then
-            MLAT_BIN="$ALT_BIN"
-        else
-            echo "Installazione mlat-client completata ma binario non trovato."
-            exit 1
-        fi
+        echo "mlat-client installation completed but binary was not found in the dedicated virtual environment."
+        exit 1
     fi
 }
 
@@ -106,11 +101,11 @@ detect_public_ip() {
 }
 
 register_feeder() {
-    msg "Registrazione automatica feeder sulla VPS..."
+    msg "Registering feeder..."
 
     if ! detect_public_ip; then
-        whiptail --title "Registrazione feeder fallita" \
-            --msgbox "Impossibile determinare l'IP pubblico di questo feeder.\n\nPuoi comunque completare l'installazione, ma dovrai aggiungere il feeder a mano sulla VPS." 12 72
+        whiptail --title "Feeder registration failed" \
+            --msgbox "Unable to detect this feeder's public IP address.\n\nInstallation can still continue, but registration must be completed manually on the server." 12 72
         return 0
     fi
 
@@ -126,15 +121,15 @@ register_feeder() {
         "$REGISTER_URL" || true)
 
     if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "201" ]]; then
-        msg "Feeder registrato automaticamente sulla VPS: ${PUBLIC_IP}"
+        msg "Feeder registration completed."
     else
-        msg "Registrazione automatica non riuscita (HTTP ${HTTP_CODE:-errore})."
-        msg "Continuo comunque con l'installazione locale."
+        msg "Feeder registration failed (HTTP ${HTTP_CODE:-error})."
+        msg "Continuing with local installation."
     fi
 }
 
 write_services() {
-    msg "Creazione servizi systemd..."
+    msg "Creating systemd services..."
 
     cat <<EOF2 | sudo tee /etc/systemd/system/mlat-italia.service >/dev/null
 [Unit]
@@ -174,7 +169,7 @@ EOF2
 }
 
 enable_services() {
-    msg "Abilitazione servizi..."
+    msg "Enabling services..."
     sudo systemctl daemon-reload
     sudo systemctl enable --now mlat-italia.service
     sudo systemctl enable --now adsb-italia.service
@@ -184,8 +179,8 @@ show_status() {
     MLAT_STATE=$(systemctl is-active mlat-italia.service || true)
     FEED_STATE=$(systemctl is-active adsb-italia.service || true)
 
-    whiptail --title "INSTALLAZIONE COMPLETATA" \
-        --msgbox "Grazie ${UTENTE}!\n\nStato servizi:\n- MLAT: ${MLAT_STATE}\n- Feed ADS-B: ${FEED_STATE}\n\nDestinazioni:\n- MLAT server: ${SERVER_IP}:${MLAT_PORT}\n- Combine feed: ${SERVER_IP}:${FEED_PORT}\n\nRegistrazione automatica tentata verso:\n- ${REGISTER_URL}\n\nSito: ${SITE_URL}" 18 74
+    whiptail --title "INSTALLATION COMPLETED" \
+        --msgbox "Thank you ${UTENTE}!\n\nService status:\n- MLAT: ${MLAT_STATE}\n- ADS-B feed: ${FEED_STATE}\n\nAutomatic registration was attempted at:\n- ${REGISTER_URL}\n\nWebsite:\n- ${SITE_URL}" 18 74
 }
 
 main() {
@@ -201,4 +196,5 @@ main() {
     show_status
 }
 
+main "$@"
 main "$@"
