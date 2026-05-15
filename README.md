@@ -91,7 +91,7 @@ Questo script aggiorna i dati salvati localmente e rigenera la configurazione ne
 Per rimuovere ADSB-Italia dal feeder:
 
 ```bash
-curl -fsSL [https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/uninstall.sh](https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/refs/heads/main/unistall.sh) | sudo bash
+curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italiamain/unistall.sh | sudo bash
 ```
 
 La disinstallazione rimuove solo l'integrazione ADSB-Italia e non il decoder ADS-B locale già presente nel sistema.
