@@ -7,6 +7,8 @@ FEED_PORT="30004"
 SITE_URL="https://adsbitalia.djrexishere.it"
 MLAT_REPO="https://github.com/wiedehopf/mlat-client.git"
 MLAT_BIN="/usr/local/bin/mlat-client"
+REGISTER_URL="https://adsbitalia.djrexishere.it/api/register-feeder"
+PUBLIC_IP_SERVICES=("https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com")
 
 require_cmd() {
     command -v "$1" >/dev/null 2>&1 || return 1
@@ -39,7 +41,7 @@ install_packages() {
 
 show_welcome() {
     whiptail --title "ADSB-Italia Network" \
-        --msgbox "Benvenuto nello script di installazione ADSB-Italia.\n\nQuesto script configura:\n- il feed ADS-B verso la VPS centrale\n- il client MLAT verso il server MLAT centrale\n\nVPS: ${SERVER_IP}" 15 72
+        --msgbox "Benvenuto nello script di installazione ADSB-Italia.\n\nQuesto script configura:\n- il feed ADS-B verso la VPS centrale\n- il client MLAT verso il server MLAT centrale\n- la registrazione automatica del feeder sulla VPS\n\nVPS: ${SERVER_IP}" 16 72
 }
 
 collect_user_data() {
@@ -89,6 +91,43 @@ install_mlat_client() {
             echo "Installazione mlat-client completata ma binario non trovato."
             exit 1
         fi
+    fi
+}
+
+detect_public_ip() {
+    for url in "${PUBLIC_IP_SERVICES[@]}"; do
+        PUBLIC_IP=$(curl -4fsS --max-time 10 "$url" 2>/dev/null | tr -d '[:space:]' || true)
+        if [[ "$PUBLIC_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+register_feeder() {
+    msg "Registrazione automatica feeder sulla VPS..."
+
+    if ! detect_public_ip; then
+        whiptail --title "Registrazione feeder fallita" \
+            --msgbox "Impossibile determinare l'IP pubblico di questo feeder.\n\nPuoi comunque completare l'installazione, ma dovrai aggiungere il feeder a mano sulla VPS." 12 72
+        return 0
+    fi
+
+    HOSTNAME_LOCAL=$(hostname -f 2>/dev/null || hostname)
+
+    PAYLOAD=$(printf '{"user":"%s","host":"%s","hostname":"%s","beast_port":30005,"mlat_port":30105,"lat":"%s","lon":"%s","alt":"%s"}' \
+        "$UTENTE" "$PUBLIC_IP" "$HOSTNAME_LOCAL" "$LAT" "$LON" "$ALT")
+
+    HTTP_CODE=$(curl -kfsS -o /tmp/adsbitalia-register.out -w '%{http_code}' \
+        -H 'Content-Type: application/json' \
+        -d "$PAYLOAD" \
+        "$REGISTER_URL" || true)
+
+    if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "201" ]]; then
+        msg "Feeder registrato automaticamente sulla VPS: ${PUBLIC_IP}"
+    else
+        msg "Registrazione automatica non riuscita (HTTP ${HTTP_CODE:-errore})."
+        msg "Continuo comunque con l'installazione locale."
     fi
 }
 
@@ -144,7 +183,7 @@ show_status() {
     FEED_STATE=$(systemctl is-active adsb-italia.service || true)
 
     whiptail --title "INSTALLAZIONE COMPLETATA" \
-        --msgbox "Grazie ${UTENTE}!\n\nStato servizi:\n- MLAT: ${MLAT_STATE}\n- Feed ADS-B: ${FEED_STATE}\n\nDestinazioni:\n- MLAT server: ${SERVER_IP}:${MLAT_PORT}\n- Combine feed: ${SERVER_IP}:${FEED_PORT}\n\nSito: ${SITE_URL}" 16 74
+        --msgbox "Grazie ${UTENTE}!\n\nStato servizi:\n- MLAT: ${MLAT_STATE}\n- Feed ADS-B: ${FEED_STATE}\n\nDestinazioni:\n- MLAT server: ${SERVER_IP}:${MLAT_PORT}\n- Combine feed: ${SERVER_IP}:${FEED_PORT}\n\nRegistrazione automatica tentata verso:\n- ${REGISTER_URL}\n\nSito: ${SITE_URL}" 18 74
 }
 
 main() {
@@ -154,6 +193,7 @@ main() {
     collect_user_data
     check_local_feed
     install_mlat_client
+    register_feeder
     write_services
     enable_services
     show_status
