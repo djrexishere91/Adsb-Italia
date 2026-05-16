@@ -124,7 +124,7 @@ register_feeder() {
 
     HOSTNAME_LOCAL=$(hostname -f 2>/dev/null || hostname)
 
-    PAYLOAD=$(printf '{"user":"%s","host":"%s","hostname":"%s","beast_port":30005,"mlat_port":30105,"lat":"%s","lon":"%s","alt":"%s"}' \
+    PAYLOAD=$(printf '{"user":"%s","host":"%s","hostname":"%s","beast_port":30005,"lat":"%s","lon":"%s","alt":"%s"}' \
         "$UTENTE" "$PUBLIC_IP" "$HOSTNAME_LOCAL" "$LAT" "$LON" "$ALT")
 
     HTTP_CODE=$(curl -kfsS -o /tmp/adsbitalia-register.out -w '%{http_code}' \
@@ -209,6 +209,5 @@ main() {
     enable_services
     show_status
 }
-
 
 main "$@"
