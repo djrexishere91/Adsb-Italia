@@ -6,7 +6,7 @@ ADSB-Italia Network allows contributors to forward local ADS-B data and MLAT res
 
 ## Live Map
 
-[Open the live map](https://adsbitalia.djrexishere.it/combine1090/)
+[Open the live map](https://adsbitalia.djrexishere.it/tar1090/)
 
 ---
 
