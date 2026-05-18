@@ -3,7 +3,7 @@ set -euo pipefail
 
 SERVER_IP="185.119.19.188"
 MLAT_PORT="41113"
-FEED_PORT="30005"
+FEED_PORT="30004"
 SITE_URL="https://adsbitalia.djrexishere.it"
 MLAT_REPO="https://github.com/wiedehopf/mlat-client.git"
 MLAT_VENV="/opt/adsbitalia-mlat"
@@ -47,27 +47,11 @@ show_welcome() {
         --msgbox "Welcome to the ADSB-Italia installer.\n\nThis script will configure:\n- ADS-B data forwarding\n- MLAT client setup\n- automatic feeder registration\n\nNo existing MLAT installation will be modified outside the dedicated service created by this script." 16 72
 }
 
-prompt_value() {
-    local prompt="$1"
-    local title="$2"
-    local value=""
-
-    if [ -t 0 ] && [ -n "${TERM:-}" ]; then
-        if value=$(whiptail --title "$title" --inputbox "$prompt" 10 60 3>&1 1>&2 2>&3); then
-            printf '%s' "$value"
-            return 0
-        fi
-    fi
-
-    read -r -p "$prompt " value
-    printf '%s' "$value"
-}
-
 collect_user_data() {
-    UTENTE=$(prompt_value "Enter your feeder name:" "User Configuration") || exit 1
-    LAT=$(prompt_value "Enter your decimal latitude (example: 44.8300):" "Coordinates") || exit 1
-    LON=$(prompt_value "Enter your decimal longitude (example: 11.6200):" "Coordinates") || exit 1
-    ALT=$(prompt_value "Enter altitude in meters (example: 15):" "Altitude") || exit 1
+    UTENTE=$(whiptail --inputbox "Enter your feeder name:" 10 60 --title "User Configuration" 3>&1 1>&2 2>&3) || exit 1
+    LAT=$(whiptail --inputbox "Enter your decimal latitude (example: 44.8300):" 10 60 --title "Coordinates" 3>&1 1>&2 2>&3) || exit 1
+    LON=$(whiptail --inputbox "Enter your decimal longitude (example: 11.6200):" 10 60 --title "Coordinates" 3>&1 1>&2 2>&3) || exit 1
+    ALT=$(whiptail --inputbox "Enter altitude in meters (example: 15):" 10 60 --title "Altitude" 3>&1 1>&2 2>&3) || exit 1
 
     [[ -n "$UTENTE" ]] || { echo "Feeder name cannot be empty."; exit 1; }
     [[ -n "$LAT" ]] || { echo "Latitude cannot be empty."; exit 1; }
