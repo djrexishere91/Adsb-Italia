@@ -72,12 +72,16 @@ check_local_feed() {
     fi
 }
 
-show_status() {
-    MLAT_STATE=$(systemctl is-active mlat-italia.service || true)
-    FEED_STATE=$(systemctl is-active adsb-italia.service || true)
-
-    whiptail --title "INSTALLATION COMPLETED" \
-        --msgbox "Thank you ${UTENTE}!\n\nService status:\n- MLAT: ${MLAT_STATE}\n- ADS-B feed: ${FEED_STATE}\n\nAutomatic registration was attempted at:\n- ${REGISTER_URL}\n\nWebsite:\n- ${SITE_URL}" 18 74
+save_config() {
+    msg "Saving local feeder configuration..."
+    sudo install -d -m 755 /etc/adsbitalia
+    sudo tee "$CONFIG_FILE" >/dev/null <<EOF
+UTENTE=$UTENTE
+LAT=$LAT
+LON=$LON
+ALT=$ALT
+EOF
+    sudo chmod 600 "$CONFIG_FILE"
 }
 
 install_mlat_client() {
