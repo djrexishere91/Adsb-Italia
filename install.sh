@@ -3,7 +3,7 @@ set -euo pipefail
 
 SERVER_IP="185.119.19.188"
 MLAT_PORT="41113"
-FEED_PORT="30004"
+FEED_PORT="30005"
 SITE_URL="https://adsbitalia.djrexishere.it"
 MLAT_REPO="https://github.com/wiedehopf/mlat-client.git"
 MLAT_VENV="/opt/adsbitalia-mlat"
