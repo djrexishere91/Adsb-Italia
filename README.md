@@ -37,7 +37,8 @@ Permette ai partecipanti di condividere i propri dati ADS-B locali e i risultati
 Esegui questo comando sul feeder:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/install.sh -o install.sh
+bash install.sh
 ```
 
 ## Requisiti
@@ -147,7 +148,8 @@ It allows contributors to forward local ADS-B data and MLAT results to the ADSB-
 Run this command on the feeder host:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/install.sh -o install.sh
+bash install.sh
 ```
 
 ## Requirements
