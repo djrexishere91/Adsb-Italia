@@ -82,7 +82,8 @@ sudo journalctl -u mlat-italia.service -f
 Se vuoi cambiare nome feeder, coordinate o altitudine, esegui:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/update.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/update.sh -o update.sh
+bash update.sh
 ```
 
 Questo script aggiorna i dati salvati localmente e rigenera la configurazione necessaria senza reinstallare tutto.
@@ -193,7 +194,8 @@ sudo journalctl -u mlat-italia.service -f
 If you need to change feeder name, coordinates, or altitude, run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/update.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/update.sh -o update.sh
+bash update.sh
 ```
 
 This updates the locally saved feeder information and refreshes the related configuration without requiring a full reinstall.
