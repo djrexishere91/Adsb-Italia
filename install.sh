@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+if [[ ! -t 0 || ! -t 1 ]]; then
+    echo "This installer must be run in an interactive terminal."
+    exit 1
+fi
 set -euo pipefail
 
 SERVER_IP="185.119.19.188"
