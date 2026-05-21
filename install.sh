@@ -17,10 +17,6 @@ REGISTER_URL="https://adsbitalia.djrexishere.it/api/register-feeder"
 REGISTER_TOKEN="6oAEgkdPAYCn1QpgcU8pCNjb_pM3jBr6Zb9j2hKHnPZ4Obnn-RYrwz1o1kl43pEu"
 PUBLIC_IP_SERVICES=("https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com")
 
-require_cmd() {
-    command -v "$1" >/dev/null 2>&1 || return 1
-}
-
 msg() {
     echo "[ADSB-Italia] $*"
 }
@@ -48,7 +44,7 @@ install_packages() {
 
 show_welcome() {
     whiptail --title "ADSB-Italia Network" \
-        --msgbox "Welcome to the ADSB-Italia installer.\n\nThis script will configure:\n- ADS-B data forwarding\n- MLAT client setup\n- automatic feeder registration\n\nNo existing MLAT installation will be modified outside the dedicated service created by this script." 16 72
+        --msgbox "Welcome to the ADSB-Italia installer.\n\nThis script will configure:\n- ADS-B push feed forwarding to ADSBItalia\n- MLAT client setup\n- automatic feeder registration\n\nThis installer uses PUSH mode for ADS-B feed delivery: your feeder sends data outbound to the ADSBItalia VPS, so no inbound router port forwarding is required on your side." 18 74
 }
 
 collect_user_data() {
@@ -72,6 +68,15 @@ check_local_feed() {
     fi
 }
 
+check_server_reachability() {
+    msg "Checking ADSBItalia server reachability on ${SERVER_IP}:${FEED_PORT}..."
+    if ! socat -T3 /dev/null TCP:${SERVER_IP}:${FEED_PORT},connect-timeout=3 >/dev/null 2>&1; then
+        whiptail --title "Server unreachable" \
+            --msgbox "The ADSBItalia server ${SERVER_IP}:${FEED_PORT} is not reachable from this feeder.\n\nPlease verify that the VPS listener is active and that outbound connectivity is available, then run the installer again." 12 76
+        exit 1
+    fi
+}
+
 save_config() {
     msg "Saving local feeder configuration..."
     sudo install -d -m 755 /etc/adsbitalia
@@ -80,6 +85,10 @@ UTENTE=$UTENTE
 LAT=$LAT
 LON=$LON
 ALT=$ALT
+SERVER_IP=$SERVER_IP
+MLAT_PORT=$MLAT_PORT
+FEED_PORT=$FEED_PORT
+FEED_MODE=push
 EOF
     sudo chmod 600 "$CONFIG_FILE"
 }
@@ -128,8 +137,8 @@ register_feeder() {
 
     HOSTNAME_LOCAL=$(hostname -f 2>/dev/null || hostname)
 
-    PAYLOAD=$(printf '{"user":"%s","host":"%s","hostname":"%s","beast_port":30005,"lat":"%s","lon":"%s","alt":"%s"}' \
-        "$UTENTE" "$PUBLIC_IP" "$HOSTNAME_LOCAL" "$LAT" "$LON" "$ALT")
+    PAYLOAD=$(printf '{"user":"%s","host":"%s","hostname":"%s","beast_port":%s,"feed_port":%s,"feed_mode":"push","lat":"%s","lon":"%s","alt":"%s"}' \
+        "$UTENTE" "$PUBLIC_IP" "$HOSTNAME_LOCAL" "30005" "$FEED_PORT" "$LAT" "$LON" "$ALT")
 
     HTTP_CODE=$(curl -kfsS -o /tmp/adsbitalia-register.out -w '%{http_code}' \
         -H 'Content-Type: application/json' \
@@ -168,7 +177,7 @@ EOF2
 
     cat <<EOF2 | sudo tee /etc/systemd/system/adsb-italia.service >/dev/null
 [Unit]
-Description=ADSB-Italia Beast Feed
+Description=ADSB-Italia Beast Feed (push mode)
 Wants=network-online.target
 After=network-online.target
 StartLimitIntervalSec=300
@@ -197,7 +206,7 @@ show_status() {
     FEED_STATE=$(systemctl is-active adsb-italia.service || true)
 
     whiptail --title "INSTALLATION COMPLETED" \
-        --msgbox "Thank you ${UTENTE}!\n\nService status:\n- MLAT: ${MLAT_STATE}\n- ADS-B feed: ${FEED_STATE}\n\nAutomatic registration was attempted at:\n- ${REGISTER_URL}\n\nWebsite:\n- ${SITE_URL}" 18 74
+        --msgbox "Thank you ${UTENTE}!\n\nService status:\n- MLAT: ${MLAT_STATE}\n- ADS-B feed: ${FEED_STATE}\n\nFeed mode:\n- PUSH to ${SERVER_IP}:${FEED_PORT}\n\nAutomatic registration was attempted at:\n- ${REGISTER_URL}\n\nWebsite:\n- ${SITE_URL}" 20 76
 }
 
 main() {
@@ -205,8 +214,9 @@ main() {
     install_packages
     show_welcome
     collect_user_data
-    save_config
     check_local_feed
+    check_server_reachability
+    save_config
     install_mlat_client
     register_feeder
     write_services
