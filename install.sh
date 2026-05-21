@@ -7,7 +7,9 @@ set -euo pipefail
 
 SERVER_IP="185.119.19.188"
 MLAT_PORT="41113"
-FEED_PORT="30004"
+FEED_PORT="31106"
+MLAT_RETURN_PORT="33106"
+LOCAL_BEAST_PORT="30005"
 SITE_URL="https://adsbitalia.djrexishere.it"
 MLAT_REPO="https://github.com/wiedehopf/mlat-client.git"
 MLAT_VENV="/opt/adsbitalia-mlat"
@@ -44,7 +46,12 @@ install_packages() {
 
 show_welcome() {
     whiptail --title "ADSB-Italia Network" \
-        --msgbox "Welcome to the ADSB-Italia installer.\n\nThis script will configure:\n- ADS-B push feed forwarding to ADSBItalia\n- MLAT client setup\n- automatic feeder registration\n\nThis installer uses PUSH mode for ADS-B feed delivery: your feeder sends data outbound to the ADSBItalia VPS, so no inbound router port forwarding is required on your side." 18 74
+        --msgbox "Welcome to the ADSB-Italia installer.\n\nThis script will configure:\n- ADS-B push feed forwarding to ADSBItalia on port ${FEED_PORT}\n- MLAT client setup\n- MLAT results exposed locally on port ${MLAT_RETURN_PORT}\n- automatic feeder registration\n\nThis installer uses PUSH mode for ADS-B feed delivery: your feeder sends data outbound to the ADSBItalia VPS, so no inbound router port forwarding is required on your side." 20 78
+}
+
+validate_port() {
+    local port="$1"
+    [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
 }
 
 collect_user_data() {
@@ -52,18 +59,25 @@ collect_user_data() {
     LAT=$(whiptail --inputbox "Enter your decimal latitude (example: 44.8300):" 10 60 --title "Coordinates" 3>&1 1>&2 2>&3) || exit 1
     LON=$(whiptail --inputbox "Enter your decimal longitude (example: 11.6200):" 10 60 --title "Coordinates" 3>&1 1>&2 2>&3) || exit 1
     ALT=$(whiptail --inputbox "Enter altitude in meters (example: 15):" 10 60 --title "Altitude" 3>&1 1>&2 2>&3) || exit 1
+    LOCAL_BEAST_PORT=$(whiptail --inputbox "Enter local Beast port from readsb/dump1090:" 10 70 "$LOCAL_BEAST_PORT" --title "Local Beast Port" 3>&1 1>&2 2>&3) || exit 1
 
     [[ -n "$UTENTE" ]] || { echo "Feeder name cannot be empty."; exit 1; }
     [[ -n "$LAT" ]] || { echo "Latitude cannot be empty."; exit 1; }
     [[ -n "$LON" ]] || { echo "Longitude cannot be empty."; exit 1; }
     [[ -n "$ALT" ]] || { echo "Altitude cannot be empty."; exit 1; }
+    [[ -n "$LOCAL_BEAST_PORT" ]] || { echo "Local Beast port cannot be empty."; exit 1; }
+
+    if ! validate_port "$LOCAL_BEAST_PORT"; then
+        echo "Invalid local Beast port: $LOCAL_BEAST_PORT"
+        exit 1
+    fi
 }
 
 check_local_feed() {
-    msg "Checking local Beast feed on localhost:30005..."
-    if ! timeout 3 bash -c '</dev/tcp/127.0.0.1/30005' 2>/dev/null; then
+    msg "Checking local Beast feed on localhost:${LOCAL_BEAST_PORT}..."
+    if ! timeout 3 bash -c "</dev/tcp/127.0.0.1/${LOCAL_BEAST_PORT}" 2>/dev/null; then
         whiptail --title "Local feed not found" \
-            --msgbox "No local Beast feed was found on localhost:30005.\n\nPlease start readsb or dump1090 first, then run this installer again." 12 70
+            --msgbox "No local Beast feed was found on localhost:${LOCAL_BEAST_PORT}.\n\nPlease start readsb or dump1090 first, or enter the correct local Beast port, then run this installer again." 12 76
         exit 1
     fi
 }
@@ -88,6 +102,8 @@ ALT=$ALT
 SERVER_IP=$SERVER_IP
 MLAT_PORT=$MLAT_PORT
 FEED_PORT=$FEED_PORT
+MLAT_RETURN_PORT=$MLAT_RETURN_PORT
+LOCAL_BEAST_PORT=$LOCAL_BEAST_PORT
 FEED_MODE=push
 EOF
     sudo chmod 600 "$CONFIG_FILE"
@@ -137,8 +153,8 @@ register_feeder() {
 
     HOSTNAME_LOCAL=$(hostname -f 2>/dev/null || hostname)
 
-    PAYLOAD=$(printf '{"user":"%s","host":"%s","hostname":"%s","beast_port":%s,"feed_port":%s,"feed_mode":"push","lat":"%s","lon":"%s","alt":"%s"}' \
-        "$UTENTE" "$PUBLIC_IP" "$HOSTNAME_LOCAL" "30005" "$FEED_PORT" "$LAT" "$LON" "$ALT")
+    PAYLOAD=$(printf '{"user":"%s","host":"%s","hostname":"%s","beast_port":%s,"feed_port":%s,"feed_mode":"push","mlat_return_port":%s,"lat":"%s","lon":"%s","alt":"%s"}' \
+        "$UTENTE" "$PUBLIC_IP" "$HOSTNAME_LOCAL" "$LOCAL_BEAST_PORT" "$FEED_PORT" "$MLAT_RETURN_PORT" "$LAT" "$LON" "$ALT")
 
     HTTP_CODE=$(curl -kfsS -o /tmp/adsbitalia-register.out -w '%{http_code}' \
         -H 'Content-Type: application/json' \
@@ -167,7 +183,7 @@ StartLimitBurst=10
 
 [Service]
 Type=simple
-ExecStart=${MLAT_BIN} --input-type dump1090 --input-connect localhost:30005 --server ${SERVER_IP}:${MLAT_PORT} --user ${UTENTE} --lat ${LAT} --lon ${LON} --alt ${ALT} --results beast,listen,30105
+ExecStart=${MLAT_BIN} --input-type dump1090 --input-connect localhost:${LOCAL_BEAST_PORT} --server ${SERVER_IP}:${MLAT_PORT} --user ${UTENTE} --lat ${LAT} --lon ${LON} --alt ${ALT} --results beast,listen,${MLAT_RETURN_PORT}
 Restart=on-failure
 RestartSec=10
 
@@ -185,7 +201,7 @@ StartLimitBurst=10
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/socat -u TCP:127.0.0.1:30005 TCP:${SERVER_IP}:${FEED_PORT}
+ExecStart=/usr/bin/socat -u TCP:127.0.0.1:${LOCAL_BEAST_PORT} TCP:${SERVER_IP}:${FEED_PORT}
 Restart=on-failure
 RestartSec=10
 
@@ -206,7 +222,7 @@ show_status() {
     FEED_STATE=$(systemctl is-active adsb-italia.service || true)
 
     whiptail --title "INSTALLATION COMPLETED" \
-        --msgbox "Thank you ${UTENTE}!\n\nService status:\n- MLAT: ${MLAT_STATE}\n- ADS-B feed: ${FEED_STATE}\n\nFeed mode:\n- PUSH to ${SERVER_IP}:${FEED_PORT}\n\nAutomatic registration was attempted at:\n- ${REGISTER_URL}\n\nWebsite:\n- ${SITE_URL}" 20 76
+        --msgbox "Thank you ${UTENTE}!\n\nService status:\n- MLAT: ${MLAT_STATE}\n- ADS-B feed: ${FEED_STATE}\n\nFeed mode:\n- PUSH to ${SERVER_IP}:${FEED_PORT}\n- Local Beast source: localhost:${LOCAL_BEAST_PORT}\n- Local MLAT results: localhost:${MLAT_RETURN_PORT}\n\nAutomatic registration was attempted at:\n- ${REGISTER_URL}\n\nWebsite:\n- ${SITE_URL}" 22 78
 }
 
 main() {
