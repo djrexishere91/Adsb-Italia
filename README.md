@@ -46,7 +46,7 @@ Prima di eseguire l'installazione, assicurati di avere:
 
 - Debian/Ubuntu oppure Arch Linux
 - Un decoder ADS-B locale attivo
-- Output Beast disponibile su `127.0.0.1:30005`
+- Un output Beast locale disponibile su `127.0.0.1` e su una porta TCP configurabile
 - Connessione Internet attiva
 - Privilegi `sudo`
 
@@ -54,7 +54,8 @@ Prima di eseguire l'installazione, assicurati di avere:
 
 Lo script:
 
-- verifica la presenza di un feed Beast locale su `127.0.0.1:30005`
+- chiede quale porta Beast locale utilizzare
+- verifica la presenza di un feed Beast locale su `127.0.0.1` e sulla porta scelta
 - installa i pacchetti necessari
 - installa `mlat-client` in un ambiente dedicato
 - registra il feeder sul server ADSB-Italia
@@ -124,7 +125,7 @@ Verifica anche che il tuo feeder locale stia effettivamente esponendo il feed Be
 
 ## Overview
 
-ADSB-Italia Network is a collaborative ADS-B feeder network with a central server located in Fiscaglia (FE), Italy.
+ADSB-Italia Network is a collaborative ADS-B feeder network.
 
 It allows contributors to forward local ADS-B data and MLAT results to the ADSB-Italia aggregation server without disrupting an existing local ADS-B setup.
 
@@ -156,7 +157,7 @@ Before installing, make sure you have:
 
 - Debian/Ubuntu or Arch Linux
 - A working local ADS-B decoder
-- Beast output available on `127.0.0.1:30005`
+- A local Beast output available on `127.0.0.1` on a configurable TCP port
 - Internet connectivity
 - `sudo` privileges
 
@@ -164,7 +165,8 @@ Before installing, make sure you have:
 
 The installation script:
 
-- checks for a local Beast feed on `127.0.0.1:30005`
+- asks which local Beast port to use
+- checks for a local Beast feed on `127.0.0.1` and the selected port
 - installs the required packages
 - installs `mlat-client` in a dedicated environment
 - registers the feeder with the ADSB-Italia server
