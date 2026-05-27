@@ -24,7 +24,7 @@ MLAT_BIN="${MLAT_VENV}/bin/mlat-client"
 CONFIG_FILE="/etc/adsbitalia/feeder.conf"
 
 REGISTER_URL="https://adsbitalia.djrexishere.it/api/register-feeder"
-REGISTER_TOKEN="REPLACE_WITH_REAL_TOKEN"
+REGISTER_TOKEN="6oAEgkdPAYCn1QpgcU8pCNjb_pM3jBr6Zb9j2hKHnPZ4Obnn-RYrwz1o1kl43pEu"
 
 PUBLIC_IP_SERVICES=(
     "https://api.ipify.org"
@@ -55,7 +55,12 @@ install_packages() {
     if [[ "$DISTRO" == "arch" ]]; then
 
         sudo pacman -Syu --noconfirm --needed \
-            whiptail curl git python python-pip base-devel netcat
+            whiptail \
+            curl \
+            git \
+            python \
+            python-pip \
+            base-devel
 
     else
 
@@ -70,8 +75,7 @@ install_packages() {
             python3-venv \
             python3-setuptools \
             gcc \
-            build-essential \
-            netcat-openbsd
+            build-essential
     fi
 }
 
@@ -84,7 +88,7 @@ This installer will configure:
 
 - ADS-B feed forwarding
 - MLAT client
-- Dedicated ADSB-Italia sidecar readsb
+- ADSB-Italia dedicated readsb feeder instance
 - Automatic feeder registration
 
 Your existing readsb/dump1090 installation will NOT be modified." \
@@ -125,7 +129,7 @@ collect_user_data() {
         3>&1 1>&2 2>&3) || exit 1
 
     LOCAL_BEAST_PORT=$(whiptail \
-        --inputbox "Enter local Beast input port from your readsb/dump1090 installation:" \
+        --inputbox "Enter local Beast input port from your existing readsb/dump1090 installation:" \
         12 72 \
         "$LOCAL_BEAST_PORT" \
         --title "Local Beast Port" \
@@ -145,7 +149,7 @@ collect_user_data() {
 
 check_local_feed() {
 
-    msg "Checking local Beast feed on port ${LOCAL_BEAST_PORT}..."
+    msg "Checking local Beast feed on localhost:${LOCAL_BEAST_PORT}..."
 
     if ! timeout 3 bash -c "</dev/tcp/127.0.0.1/${LOCAL_BEAST_PORT}" 2>/dev/null; then
 
@@ -192,8 +196,6 @@ install_mlat_client() {
 
     TMPDIR=$(mktemp -d)
 
-    trap 'rm -rf "$TMPDIR"' EXIT
-
     sudo mkdir -p "$MLAT_VENV"
 
     sudo python3 -m venv "$MLAT_VENV"
@@ -205,6 +207,8 @@ install_mlat_client() {
 
     sudo "$MLAT_VENV/bin/pip" install \
         "$TMPDIR/mlat-client"
+
+    sudo rm -rf "$TMPDIR"
 }
 
 detect_public_ip() {
@@ -250,9 +254,9 @@ register_feeder() {
         "$REGISTER_URL" >/dev/null || true
 }
 
-write_sidecar_service() {
+write_feed_service() {
 
-    msg "Creating ADSB-Italia sidecar readsb service..."
+    msg "Creating ADSB-Italia feed service..."
 
     sudo tee /etc/systemd/system/adsbitalia-feed.service >/dev/null <<EOF
 [Unit]
@@ -268,7 +272,9 @@ ExecStart=/usr/bin/readsb \\
   --net-only \\
   --net-bind-address 127.0.0.1 \\
   --net-connector=127.0.0.1,${LOCAL_BEAST_PORT},beast_in \\
-  --net-bo-port ${FEED_PORT}
+  --net-bo-port ${FEED_PORT} \\
+  --net-ro-size 1280 \\
+  --net-ro-interval 0.05
 
 Restart=always
 RestartSec=3
@@ -352,7 +358,7 @@ main() {
     save_config
     install_mlat_client
     register_feeder
-    write_sidecar_service
+    write_feed_service
     write_mlat_service
     enable_services
     show_status
