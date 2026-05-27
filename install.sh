@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
 if [[ ! -t 0 || ! -t 1 ]]; then
     echo "This installer must be run in an interactive terminal."
     exit 1
 fi
 
-# ----------------------------
-# CONFIG
-# ----------------------------
+set -euo pipefail
+
 SERVER_IP="185.119.19.188"
+
 FEED_PORT="31108"
 MLAT_PORT="41113"
 MLAT_RETURN_PORT="33106"
+
+LOCAL_BEAST_PORT="30005"
 
 SITE_URL="https://adsbitalia.djrexishere.it"
 
@@ -20,110 +21,254 @@ MLAT_REPO="https://github.com/wiedehopf/mlat-client.git"
 MLAT_VENV="/opt/adsbitalia-mlat"
 MLAT_BIN="${MLAT_VENV}/bin/mlat-client"
 
-INSTALL_PREFIX="/usr/local/bin"
-READSB_ADSBI="${INSTALL_PREFIX}/readsb-adsbitalia"
-
 CONFIG_FILE="/etc/adsbitalia/feeder.conf"
 
-PUBLIC_IP_SERVICES=("https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com")
+REGISTER_URL="https://adsbitalia.djrexishere.it/api/register-feeder"
+REGISTER_TOKEN="REPLACE_WITH_REAL_TOKEN"
 
-# ----------------------------
-msg(){ echo "[ADSB-Italia] $*"; }
+PUBLIC_IP_SERVICES=(
+    "https://api.ipify.org"
+    "https://ifconfig.me"
+    "https://icanhazip.com"
+)
 
-# ----------------------------
+msg() {
+    echo "[ADSB-Italia] $*"
+}
+
 detect_distro() {
-    if [[ -f /etc/debian_version ]]; then
+
+    if [[ -f /etc/arch-release ]]; then
+        DISTRO="arch"
+    elif [[ -f /etc/debian_version ]]; then
         DISTRO="debian"
     else
-        DISTRO="arch"
+        echo "Unsupported distribution."
+        exit 1
     fi
 }
 
-# ----------------------------
 install_packages() {
+
     msg "Installing dependencies..."
 
     if [[ "$DISTRO" == "arch" ]]; then
+
         sudo pacman -Syu --noconfirm --needed \
-            git curl whiptail python python-pip base-devel
+            whiptail curl git python python-pip base-devel netcat
+
     else
+
         sudo apt update
+
         sudo apt install -y \
-            git curl whiptail python3 python3-pip python3-venv build-essential
+            whiptail \
+            curl \
+            git \
+            python3 \
+            python3-pip \
+            python3-venv \
+            python3-setuptools \
+            gcc \
+            build-essential \
+            netcat-openbsd
     fi
 }
 
-# ----------------------------
+show_welcome() {
+
+    whiptail --title "ADSB-Italia Network" \
+        --msgbox "Welcome to the ADSB-Italia installer.
+
+This installer will configure:
+
+- ADS-B feed forwarding
+- MLAT client
+- Dedicated ADSB-Italia sidecar readsb
+- Automatic feeder registration
+
+Your existing readsb/dump1090 installation will NOT be modified." \
+        20 78
+}
+
+validate_port() {
+
+    local port="$1"
+
+    [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+}
+
 collect_user_data() {
-    UTENTE=$(whiptail --inputbox "Feeder name:" 10 60 3>&1 1>&2 2>&3)
-    LOCAL_BEAST_PORT=$(whiptail --inputbox "Porta BEAST locale readsb/dump1090 (es 30005):" 10 60 "30005" 3>&1 1>&2 2>&3)
-    SERVER_PORT="31108"
 
-    [[ -n "$UTENTE" ]] || exit 1
+    FEEDER_NAME=$(whiptail \
+        --inputbox "Enter your feeder name:" \
+        10 60 \
+        --title "Feeder Configuration" \
+        3>&1 1>&2 2>&3) || exit 1
+
+    LAT=$(whiptail \
+        --inputbox "Enter your latitude:" \
+        10 60 \
+        --title "Coordinates" \
+        3>&1 1>&2 2>&3) || exit 1
+
+    LON=$(whiptail \
+        --inputbox "Enter your longitude:" \
+        10 60 \
+        --title "Coordinates" \
+        3>&1 1>&2 2>&3) || exit 1
+
+    ALT=$(whiptail \
+        --inputbox "Enter altitude in meters:" \
+        10 60 \
+        --title "Altitude" \
+        3>&1 1>&2 2>&3) || exit 1
+
+    LOCAL_BEAST_PORT=$(whiptail \
+        --inputbox "Enter local Beast input port from your readsb/dump1090 installation:" \
+        12 72 \
+        "$LOCAL_BEAST_PORT" \
+        --title "Local Beast Port" \
+        3>&1 1>&2 2>&3) || exit 1
+
+    [[ -n "$FEEDER_NAME" ]] || exit 1
+    [[ -n "$LAT" ]] || exit 1
+    [[ -n "$LON" ]] || exit 1
+    [[ -n "$ALT" ]] || exit 1
     [[ -n "$LOCAL_BEAST_PORT" ]] || exit 1
-}
 
-# ----------------------------
-check_local_feed() {
-    msg "Checking local feed on 127.0.0.1:${LOCAL_BEAST_PORT}..."
-    timeout 2 bash -c "</dev/tcp/127.0.0.1/${LOCAL_BEAST_PORT}" || {
-        echo "No local readsb/dump1090 feed found"
+    if ! validate_port "$LOCAL_BEAST_PORT"; then
+        echo "Invalid local Beast port."
         exit 1
-    }
+    fi
 }
 
-# ----------------------------
-install_sidecar_readsb() {
-    msg "Installing ADSBItalia sidecar readsb..."
+check_local_feed() {
 
-    TMP=$(mktemp -d)
-    git clone https://github.com/wiedehopf/readsb.git "$TMP/readsb"
+    msg "Checking local Beast feed on port ${LOCAL_BEAST_PORT}..."
 
-    cd "$TMP/readsb"
-    make -j"$(nproc)"
+    if ! timeout 3 bash -c "</dev/tcp/127.0.0.1/${LOCAL_BEAST_PORT}" 2>/dev/null; then
 
-    sudo install -m 755 readsb "$READSB_ADSBI"
+        whiptail \
+            --title "Local Beast feed not found" \
+            --msgbox "No Beast feed detected on localhost:${LOCAL_BEAST_PORT}.
+
+Please verify your readsb/dump1090 installation and try again." \
+            12 72
+
+        exit 1
+    fi
 }
 
-# ----------------------------
+save_config() {
+
+    msg "Saving configuration..."
+
+    sudo install -d -m 755 /etc/adsbitalia
+
+    sudo tee "$CONFIG_FILE" >/dev/null <<EOF
+FEEDER_NAME=$FEEDER_NAME
+LAT=$LAT
+LON=$LON
+ALT=$ALT
+LOCAL_BEAST_PORT=$LOCAL_BEAST_PORT
+SERVER_IP=$SERVER_IP
+FEED_PORT=$FEED_PORT
+MLAT_PORT=$MLAT_PORT
+MLAT_RETURN_PORT=$MLAT_RETURN_PORT
+EOF
+
+    sudo chmod 600 "$CONFIG_FILE"
+}
+
 install_mlat_client() {
+
     if [[ -x "$MLAT_BIN" ]]; then
-        msg "MLAT already installed"
+        msg "MLAT client already installed."
         return
     fi
 
     msg "Installing MLAT client..."
 
-    sudo python3 -m venv "$MLAT_VENV"
-    sudo "$MLAT_VENV/bin/pip" install --upgrade pip setuptools wheel
+    TMPDIR=$(mktemp -d)
 
-    TMP=$(mktemp -d)
-    git clone "$MLAT_REPO" "$TMP/mlat-client"
-    sudo "$MLAT_VENV/bin/pip" install "$TMP/mlat-client"
+    trap 'rm -rf "$TMPDIR"' EXIT
+
+    sudo mkdir -p "$MLAT_VENV"
+
+    sudo python3 -m venv "$MLAT_VENV"
+
+    sudo "$MLAT_VENV/bin/pip" install --upgrade \
+        pip setuptools wheel
+
+    git clone "$MLAT_REPO" "$TMPDIR/mlat-client"
+
+    sudo "$MLAT_VENV/bin/pip" install \
+        "$TMPDIR/mlat-client"
 }
 
-# ----------------------------
+detect_public_ip() {
+
+    for url in "${PUBLIC_IP_SERVICES[@]}"; do
+
+        PUBLIC_IP=$(curl -4fsS --max-time 10 "$url" 2>/dev/null | tr -d '[:space:]' || true)
+
+        if [[ "$PUBLIC_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+register_feeder() {
+
+    msg "Registering feeder..."
+
+    if ! detect_public_ip; then
+        msg "Unable to detect public IP."
+        return 0
+    fi
+
+    HOSTNAME_LOCAL=$(hostname -f 2>/dev/null || hostname)
+
+    PAYLOAD=$(printf '{"user":"%s","host":"%s","hostname":"%s","beast_port":%s,"feed_port":%s,"feed_mode":"push","mlat_return_port":%s,"lat":"%s","lon":"%s","alt":"%s"}' \
+        "$FEEDER_NAME" \
+        "$PUBLIC_IP" \
+        "$HOSTNAME_LOCAL" \
+        "$LOCAL_BEAST_PORT" \
+        "$FEED_PORT" \
+        "$MLAT_RETURN_PORT" \
+        "$LAT" \
+        "$LON" \
+        "$ALT")
+
+    curl -kfsS \
+        -H 'Content-Type: application/json' \
+        -H "X-Register-Token: ${REGISTER_TOKEN}" \
+        -d "$PAYLOAD" \
+        "$REGISTER_URL" >/dev/null || true
+}
+
 write_sidecar_service() {
 
-    msg "Creating ADSBItalia sidecar readsb service..."
+    msg "Creating ADSB-Italia sidecar readsb service..."
 
-    sudo tee /etc/systemd/system/adsbitalia-sidecar.service >/dev/null <<EOF
+    sudo tee /etc/systemd/system/adsbitalia-feed.service >/dev/null <<EOF
 [Unit]
-Description=ADSBItalia Sidecar Readsb
+Description=ADSB-Italia Feed Service
+Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=simple
 
-ExecStart=${READSB_ADSBI} \
-  --net \
-  --net-only \
-  --net-connect 127.0.0.1:${LOCAL_BEAST_PORT} \
-  --net-beast-reduce-out \
-  --net-ro-size 5000 \
-  --net-ro-interval 0.2 \
-  --net-heartbeat 30 \
-  --forward-addr ${SERVER_IP}:${FEED_PORT}
+ExecStart=/usr/bin/readsb \\
+  --net \\
+  --net-only \\
+  --net-bind-address 127.0.0.1 \\
+  --net-connector=127.0.0.1,${LOCAL_BEAST_PORT},beast_in \\
+  --net-bo-port ${FEED_PORT}
 
 Restart=always
 RestartSec=3
@@ -133,23 +278,27 @@ WantedBy=multi-user.target
 EOF
 }
 
-# ----------------------------
 write_mlat_service() {
 
-    msg "Creating MLAT service..."
+    msg "Creating ADSB-Italia MLAT service..."
 
     sudo tee /etc/systemd/system/adsbitalia-mlat.service >/dev/null <<EOF
 [Unit]
-Description=ADSBItalia MLAT Client
+Description=ADSB-Italia MLAT Service
+Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=simple
 
-ExecStart=${MLAT_BIN} \
-  --input-type dump1090 \
-  --input-connect 127.0.0.1:${LOCAL_BEAST_PORT} \
-  --server ${SERVER_IP}:${MLAT_PORT} \
+ExecStart=${MLAT_BIN} \\
+  --input-type dump1090 \\
+  --input-connect 127.0.0.1:${LOCAL_BEAST_PORT} \\
+  --server ${SERVER_IP}:${MLAT_PORT} \\
+  --user ${FEEDER_NAME} \\
+  --lat ${LAT} \\
+  --lon ${LON} \\
+  --alt ${ALT} \\
   --results beast,listen,${MLAT_RETURN_PORT}
 
 Restart=always
@@ -160,38 +309,53 @@ WantedBy=multi-user.target
 EOF
 }
 
-# ----------------------------
 enable_services() {
+
     msg "Enabling services..."
 
     sudo systemctl daemon-reload
-    sudo systemctl enable --now adsbitalia-sidecar.service
+
+    sudo systemctl enable --now adsbitalia-feed.service
     sudo systemctl enable --now adsbitalia-mlat.service
 }
 
-# ----------------------------
-show_done() {
-    echo ""
-    echo "ADSBItalia V2 installed"
-    echo "Sidecar readsb -> VPS:${FEED_PORT}"
-    echo "MLAT -> active"
-    echo "Local input -> ${LOCAL_BEAST_PORT}"
-    echo ""
-    echo "DONE"
+show_status() {
+
+    FEED_STATE=$(systemctl is-active adsbitalia-feed.service || true)
+    MLAT_STATE=$(systemctl is-active adsbitalia-mlat.service || true)
+
+    whiptail \
+        --title "Installation Completed" \
+        --msgbox "ADSB-Italia feeder installation completed successfully.
+
+Feed service: ${FEED_STATE}
+MLAT service: ${MLAT_STATE}
+
+Feed destination:
+${SERVER_IP}:${FEED_PORT}
+
+MLAT destination:
+${SERVER_IP}:${MLAT_PORT}
+
+Website:
+${SITE_URL}" \
+        20 78
 }
 
-# ----------------------------
 main() {
+
     detect_distro
     install_packages
+    show_welcome
     collect_user_data
     check_local_feed
-    install_sidecar_readsb
+    save_config
     install_mlat_client
+    register_feeder
     write_sidecar_service
     write_mlat_service
     enable_services
-    show_done
+    show_status
 }
 
 main "$@"
