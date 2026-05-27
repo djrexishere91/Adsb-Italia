@@ -40,8 +40,10 @@ detect_distro() {
 
     if [[ -f /etc/arch-release ]]; then
         DISTRO="arch"
+
     elif [[ -f /etc/debian_version ]]; then
         DISTRO="debian"
+
     else
         echo "Unsupported distribution."
         exit 1
@@ -88,7 +90,7 @@ This installer will configure:
 
 - ADS-B feed forwarding
 - MLAT client
-- ADSB-Italia dedicated readsb feeder instance
+- ADSB-Italia dedicated feeder instance
 - Automatic feeder registration
 
 Your existing readsb/dump1090 installation will NOT be modified." \
@@ -145,6 +147,35 @@ collect_user_data() {
         echo "Invalid local Beast port."
         exit 1
     fi
+}
+
+detect_readsb_binary() {
+
+    if command -v readsb >/dev/null 2>&1; then
+
+        READSB_BIN=$(command -v readsb)
+
+    elif [[ -x /usr/bin/dump1090-fa ]]; then
+
+        READSB_BIN="/usr/bin/dump1090-fa"
+
+    elif [[ -x /usr/local/bin/readsb ]]; then
+
+        READSB_BIN="/usr/local/bin/readsb"
+
+    else
+
+        whiptail \
+            --title "Decoder not found" \
+            --msgbox "Unable to locate readsb or dump1090-fa.
+
+Please install readsb or dump1090-fa first and run the installer again." \
+            12 72
+
+        exit 1
+    fi
+
+    msg "Detected decoder binary: ${READSB_BIN}"
 }
 
 check_local_feed() {
@@ -267,12 +298,12 @@ After=network-online.target
 [Service]
 Type=simple
 
-ExecStart=/usr/bin/readsb \\
+ExecStart=${READSB_BIN} \\
   --net \\
   --net-only \\
   --net-bind-address 127.0.0.1 \\
   --net-connector=127.0.0.1,${LOCAL_BEAST_PORT},beast_in \\
-  --net-bo-port ${FEED_PORT} \\
+  --net-connector=${SERVER_IP},${FEED_PORT},beast_out \\
   --net-ro-size 1280 \\
   --net-ro-interval 0.05
 
@@ -354,6 +385,7 @@ main() {
     install_packages
     show_welcome
     collect_user_data
+    detect_readsb_binary
     check_local_feed
     save_config
     install_mlat_client
