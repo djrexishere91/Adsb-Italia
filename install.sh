@@ -176,8 +176,8 @@ install_mlat_client() {
 
     sudo "$MLAT_VENV/bin/pip" install --upgrade pip setuptools wheel
 
-    # Required for Python 3.12 / 3.13 because asyncore was removed
-    sudo "$MLAT_VENV/bin/python" -c "import asyncore" 2>/dev/null || \
+    # Install pyasyncore if asyncore is missing (Python 3.12+)
+    sudo "$MLAT_VENV/bin/python" -c "import asyncore" >/dev/null 2>&1 || \
         sudo "$MLAT_VENV/bin/pip" install pyasyncore
 
     git clone "$MLAT_REPO" "$TMPDIR/mlat-client"
