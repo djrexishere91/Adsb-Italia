@@ -13,7 +13,7 @@ FEED_PORT="31108"
 MLAT_PORT="41113"
 MLAT_RETURN_PORT="33106"
 
-LOCAL_BEAST_PORT="30005"
+LOCAL_BEAST_PORT_DEFAULT="30005"
 
 SITE_URL="https://adsbitalia.it"
 
@@ -52,12 +52,12 @@ install_packages() {
 
     if [[ "$DISTRO" == "arch" ]]; then
         sudo pacman -Syu --noconfirm --needed \
-            whiptail curl git python python-pip base-devel
+            whiptail curl git python python-pip base-devel iproute2
     else
         sudo apt update
         sudo apt install -y \
             whiptail curl git python3 python3-pip python3-venv \
-            python3-setuptools gcc build-essential
+            python3-setuptools gcc build-essential iproute2
     fi
 }
 
@@ -88,10 +88,18 @@ collect_user_data() {
     ALT=$(whiptail --inputbox "Enter altitude in meters:" 10 60 --title "Altitude" 3>&1 1>&2 2>&3) || exit 1
 
     LOCAL_BEAST_PORT=$(whiptail \
-        --inputbox "Enter local Beast input port from your existing readsb/dump1090 installation:" \
-        12 72 \
-        "$LOCAL_BEAST_PORT" \
-        --title "Local Beast Port" \
+        --inputbox "Enter local Beast OUT port from your existing readsb/dump1090 installation.
+
+Examples:
+30005
+30006
+30105
+31005
+
+Any custom Beast OUT port is accepted." \
+        16 72 \
+        "$LOCAL_BEAST_PORT_DEFAULT" \
+        --title "Local Beast OUT Port" \
         3>&1 1>&2 2>&3) || exit 1
 
     [[ -n "$FEEDER_NAME" ]] || exit 1
@@ -127,17 +135,32 @@ Please install readsb or dump1090-fa first and run the installer again." \
 }
 
 check_local_feed() {
-    msg "Checking local Beast feed on localhost:${LOCAL_BEAST_PORT}..."
+    msg "Checking local Beast OUT feed on localhost:${LOCAL_BEAST_PORT}..."
+
+    if ! validate_port "$LOCAL_BEAST_PORT"; then
+        echo "Invalid local Beast port."
+        exit 1
+    fi
 
     if ! timeout 3 bash -c "</dev/tcp/127.0.0.1/${LOCAL_BEAST_PORT}" 2>/dev/null; then
         whiptail \
             --title "Local Beast feed not found" \
             --msgbox "No Beast feed detected on localhost:${LOCAL_BEAST_PORT}.
 
+This script accepts any port, but the selected port must be a local Beast OUT port.
+
+Examples:
+30005
+30006
+30105
+31005
+
 Please verify your readsb/dump1090 installation and try again." \
-            12 72
+            18 72
         exit 1
     fi
+
+    msg "Local Beast feed reachable on port ${LOCAL_BEAST_PORT}."
 }
 
 save_config() {
@@ -176,7 +199,6 @@ install_mlat_client() {
 
     sudo "$MLAT_VENV/bin/pip" install --upgrade pip setuptools wheel
 
-    # Install pyasyncore if asyncore is missing (Python 3.12+)
     sudo "$MLAT_VENV/bin/python" -c "import asyncore" >/dev/null 2>&1 || \
         sudo "$MLAT_VENV/bin/pip" install pyasyncore
 
@@ -305,6 +327,9 @@ show_status() {
 Feed service: ${FEED_STATE}
 MLAT service: ${MLAT_STATE}
 
+Local Beast OUT port used:
+${LOCAL_BEAST_PORT}
+
 Feed destination:
 ${SERVER_IP}:${FEED_PORT}
 
@@ -313,7 +338,7 @@ ${SERVER_IP}:${MLAT_PORT}
 
 Website:
 ${SITE_URL}" \
-        20 78
+        22 78
 }
 
 main() {
