@@ -197,10 +197,10 @@ install_mlat_client() {
     sudo mkdir -p "$MLAT_VENV"
     sudo python3 -m venv "$MLAT_VENV"
 
-    sudo "$MLAT_VENV/bin/pip" install --upgrade pip setuptools wheel
+    sudo "$MLAT_VENV/bin/pip" install --upgrade --timeout 120 --retries 10 pip setuptools wheel
 
     sudo "$MLAT_VENV/bin/python" -c "import asyncore" >/dev/null 2>&1 || \
-        sudo "$MLAT_VENV/bin/pip" install pyasyncore
+        sudo "$MLAT_VENV/bin/pip" install --timeout 120 --retries 10 pyasyncore
 
     git clone "$MLAT_REPO" "$TMPDIR/mlat-client"
 
