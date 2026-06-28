@@ -4,10 +4,11 @@
 
 ADSBItalia is an independent collaborative network that aggregates ADS-B feeds and, where available, MLAT data from feeders around the world.
 
-The project supports two different ways to contribute:
+The project currently supports three ways to contribute:
 
 1. **Classic Linux feeder** using `install.sh`, `systemd`, `socat` and a dedicated `mlat-client` environment.
-2. **Ultrafeeder / Docker feeder** using the configuration published on the ADSBItalia website, without running `install.sh`.
+2. **Ultrafeeder / Docker feeder** by adding ADSBItalia to the outbound feeder configuration, without running `install.sh`.
+3. **ADSB.im feeder** by adding ADSBItalia from the ADSB.im web interface, without running `install.sh`.
 
 All feeder connections are outbound. You do **not** need to open ports on your router.
 
@@ -31,7 +32,7 @@ It allows contributors to send a copy of their local ADS-B data, and where avail
 
 ADSBItalia is not limited to Italian feeders. The project is open to stable and useful feeder stations from anywhere in the world.
 
-## Choose your installation type
+## Choose your setup
 
 ### 1. Classic Linux installation
 
@@ -42,32 +43,69 @@ Use this method if you already have a local ADS-B decoder such as:
 - `dump1090-mutability`
 - another decoder exposing a Beast OUT TCP port
 
-The classic installer configures ADSBItalia services on the host.
+The classic installer configures ADSBItalia services directly on the host.
 
-Use:
+Run:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/install.sh -o install.sh && bash install.sh
 ```
 
-The installer will ask for:
+The installer asks for:
 
-- feeder name
-- latitude
-- longitude
-- altitude
-- local Beast OUT port
-- optional local ADSBItalia map based on `tar1090`
+- feeder name;
+- latitude;
+- longitude;
+- altitude;
+- local Beast OUT port;
+- optional local ADSBItalia map based on `tar1090`.
+
+`30005` is only the default local Beast OUT port. A different Beast OUT port can be entered during installation.
 
 ### 2. Ultrafeeder / Docker
 
 If you use Ultrafeeder/Docker, **do not run `install.sh`**.
 
-Ultrafeeder users must add ADSBItalia directly to their Docker configuration using the values published on the website:
+Add ADSBItalia directly to your Ultrafeeder outbound configuration using the values published on the website:
 
 [How to join ADSBItalia](https://adsbitalia.it/feeding.html)
 
-This keeps the Ultrafeeder setup clean and avoids installing duplicate services on the host.
+Example lines:
+
+```text
+adsb,adsbitalia.it,31108,beast_reduce_plus_out;
+mlat,mlat.adsbitalia.it,41113,39008
+```
+
+The last value in the MLAT line is the local MLAT results port inside your Ultrafeeder configuration. Use a free port that matches your setup.
+
+### 3. ADSB.im
+
+If you use ADSB.im, **do not run `install.sh`**.
+
+ADSB.im can send data to ADSBItalia from its web interface:
+
+1. Open the ADSB.im web interface.
+2. Go to **Setup**.
+3. Select **Expert**.
+4. Find **Add additional Ultrafeeder arguments**.
+5. Paste the ADSBItalia lines.
+6. Press **Apply**.
+
+![ADSB.im: click Setup and select Expert](https://www.adsbitalia.it/images/adsbim1en.png)
+
+![ADSB.im: paste the ADSBItalia lines and press Apply](https://www.adsbitalia.it/images/adsbim2en.png)
+
+Lines to paste:
+
+```text
+adsb,adsbitalia.it,31108,beast_reduce_plus_out;
+mlat,mlat.adsbitalia.it,41113,39008;
+```
+
+After applying the change, check your feeder status here:
+
+[Your feed status](https://adsbitalia.it/status.html)
 
 ## Main ports
 
@@ -77,7 +115,8 @@ This keeps the Ultrafeeder setup clean and avoids installing duplicate services 
 | `31108` | Main ADS-B Beast input port to ADSBItalia. |
 | `31106` | Legacy/mux ADS-B port for old feeders not updated yet. Do not use it for new installations. |
 | `41113` | MLAT server port. |
-| `33106` | Local MLAT results port on the feeder side. |
+| `33106` | Local MLAT results port on the feeder side for classic installations. |
+| `39008` | Example local MLAT results port for Ultrafeeder/ADSB.im configurations. |
 
 ## What `install.sh` does
 
@@ -110,30 +149,58 @@ If installed, the map is customized with ADSBItalia branding and the installer d
 http://192.168.1.50/tar1090/
 ```
 
-If Ultrafeeder/Docker is detected, the script skips this optional map and recommends using the web interface already provided by Ultrafeeder.
+If you use Ultrafeeder/Docker or ADSB.im, do not install a separate `tar1090` map from the ADSBItalia script. Use the web interface already provided by your existing platform.
 
 ## Management commands
 
-### Service status
+### Classic installation
+
+Service status:
 
 ```bash
 sudo systemctl status adsbitalia-feed.service
 sudo systemctl status adsbitalia-mlat.service
 ```
 
-### Live logs
+Live logs:
 
 ```bash
 sudo journalctl -u adsbitalia-feed.service -f
 sudo journalctl -u adsbitalia-mlat.service -f
 ```
 
-### Check local and remote connections
+Check local and remote connections:
 
 ```bash
 ss -tlnp | egrep '30005|33106'
 ss -tnp | egrep '31108|41113'
 ```
+
+### Ultrafeeder / Docker
+
+```bash
+docker ps | grep -i ultrafeeder
+docker logs -f ultrafeeder
+```
+
+Docker Compose:
+
+```bash
+docker compose ps
+docker compose logs -f ultrafeeder
+```
+
+### ADSB.im
+
+Use the ADSB.im web interface:
+
+```text
+Setup → Expert → Add additional Ultrafeeder arguments
+```
+
+Then check:
+
+[Your feed status](https://adsbitalia.it/status.html)
 
 ## Feeder status page
 
@@ -145,7 +212,8 @@ The status page supports:
 
 - classic ADSBItalia feeders;
 - legacy/mux feeders still using the old port;
-- Ultrafeeder/Docker feeders.
+- Ultrafeeder/Docker feeders;
+- ADSB.im feeders.
 
 It shows:
 
@@ -161,11 +229,13 @@ It shows:
 
 ## Update feeder details
 
-To update feeder name, coordinates or altitude:
+To update feeder name, coordinates or altitude on a classic installation:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/update.sh -o update.sh && bash update.sh
 ```
+
+For Ultrafeeder/Docker or ADSB.im, update the details in your existing platform/configuration.
 
 ## Uninstall
 
@@ -177,6 +247,10 @@ curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/unin
 
 The uninstall process removes only the ADSBItalia integration. It does not remove your local ADS-B decoder.
 
+If the optional ADSBItalia `tar1090` local map was installed by the ADSBItalia installer, the uninstall script also removes that optional local map.
+
+For Ultrafeeder/Docker or ADSB.im, remove the ADSBItalia lines from the configuration and apply/restart the service.
+
 ## Files created by the classic installer
 
 | Path | Description |
@@ -186,6 +260,8 @@ The uninstall process removes only the ADSBItalia integration. It does not remov
 | `/etc/systemd/system/adsbitalia-feed.service` | ADS-B forwarding service. |
 | `/etc/systemd/system/adsbitalia-mlat.service` | MLAT service. |
 | local `tar1090` directory | Optional local map, only if selected during installation. |
+
+These files are not created when joining through Ultrafeeder/Docker or ADSB.im.
 
 ## Troubleshooting
 
@@ -203,16 +279,17 @@ Ultrafeeder / Docker:
 ```bash
 docker ps | grep -i ultrafeeder
 docker logs -f ultrafeeder
-```
-
-Docker Compose:
-
-```bash
-docker compose ps
 docker compose logs -f ultrafeeder
 ```
 
-Also verify that the local Beast OUT feed exists on the port you configured.
+ADSB.im:
+
+- verify that the ADSBItalia lines are still present in **Setup → Expert**;
+- verify that every line ends with a semicolon;
+- press **Apply** again after editing;
+- check the ADSBItalia status page.
+
+Also verify that your local feeder is generating ADS-B data and that outbound connections to ADSBItalia are allowed.
 
 ## Support
 
@@ -253,12 +330,14 @@ curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/inst
 
 Lo script chiede:
 
-- nome feeder
-- latitudine
-- longitudine
-- altitudine
-- porta Beast OUT locale
-- eventuale mappa locale ADSBItalia basata su `tar1090`
+- nome feeder;
+- latitudine;
+- longitudine;
+- altitudine;
+- porta Beast OUT locale;
+- eventuale mappa locale ADSBItalia basata su `tar1090`.
+
+Durante l’installazione classica la porta Beast OUT locale è modificabile. `30005` è solo il valore predefinito.
 
 ### 2. Ultrafeeder / Docker
 
@@ -270,6 +349,43 @@ Gli utenti Ultrafeeder devono aggiungere ADSBItalia direttamente nella configura
 
 In questo modo Ultrafeeder resta pulito e non vengono installati servizi duplicati sull’host.
 
+Righe di esempio:
+
+```text
+adsb,adsbitalia.it,31108,beast_reduce_plus_out;
+mlat,mlat.adsbitalia.it,41113,39008
+```
+
+L’ultimo valore della riga MLAT è la porta locale dei risultati MLAT dentro la configurazione Ultrafeeder. Usa una porta libera coerente con il tuo setup.
+
+### 3. ADSB.im
+
+Se usi ADSB.im, **non devi eseguire `install.sh`**.
+
+ADSB.im può inviare dati ad ADSBItalia direttamente dalla sua interfaccia web:
+
+1. Apri l’interfaccia web di ADSB.im.
+2. Vai su **Setup**.
+3. Seleziona **Expert**.
+4. Trova **Add additional Ultrafeeder arguments**.
+5. Incolla le righe ADSBItalia.
+6. Premi **Apply**.
+
+![ADSB.im: clicca Setup e seleziona Expert](https://www.adsbitalia.it/images/adsbim1it.png)
+
+![ADSB.im: incolla le righe ADSBItalia e premi Apply](https://www.adsbitalia.it/images/adsbim2it.png)
+
+Righe da incollare:
+
+```text
+adsb,adsbitalia.it,31108,beast_reduce_plus_out;
+mlat,mlat.adsbitalia.it,41113,39008;
+```
+
+Dopo aver applicato la modifica, controlla lo stato del feeder qui:
+
+[Stato del tuo feed](https://adsbitalia.it/status.html)
+
 ## Porte principali
 
 | Porta | Uso |
@@ -278,7 +394,8 @@ In questo modo Ultrafeeder resta pulito e non vengono installati servizi duplica
 | `31108` | Porta ADS-B Beast principale verso ADSBItalia. |
 | `31106` | Porta ADS-B legacy/mux per vecchi feeder non ancora aggiornati. Non usarla per nuove installazioni. |
 | `41113` | Porta server MLAT. |
-| `33106` | Porta locale dei risultati MLAT lato feeder. |
+| `33106` | Porta locale dei risultati MLAT lato feeder per installazioni classiche. |
+| `39008` | Esempio di porta locale risultati MLAT per configurazioni Ultrafeeder/ADSB.im. |
 
 ## Cosa fa `install.sh`
 
@@ -311,30 +428,58 @@ Se installata, la mappa viene personalizzata con branding ADSBItalia e lo script
 http://192.168.1.50/tar1090/
 ```
 
-Se viene rilevato Ultrafeeder/Docker, lo script salta questa mappa opzionale e consiglia di usare l’interfaccia web già fornita da Ultrafeeder.
+Se usi Ultrafeeder/Docker o ADSB.im, non installare una mappa `tar1090` separata tramite lo script ADSBItalia. Usa l’interfaccia web già fornita dalla tua piattaforma.
 
 ## Comandi di gestione
 
-### Stato servizi
+### Installazione classica
+
+Stato servizi:
 
 ```bash
 sudo systemctl status adsbitalia-feed.service
 sudo systemctl status adsbitalia-mlat.service
 ```
 
-### Log live
+Log live:
 
 ```bash
 sudo journalctl -u adsbitalia-feed.service -f
 sudo journalctl -u adsbitalia-mlat.service -f
 ```
 
-### Controllo porte e connessioni
+Controllo porte e connessioni:
 
 ```bash
 ss -tlnp | egrep '30005|33106'
 ss -tnp | egrep '31108|41113'
 ```
+
+### Ultrafeeder / Docker
+
+```bash
+docker ps | grep -i ultrafeeder
+docker logs -f ultrafeeder
+```
+
+Docker Compose:
+
+```bash
+docker compose ps
+docker compose logs -f ultrafeeder
+```
+
+### ADSB.im
+
+Usa l’interfaccia web ADSB.im:
+
+```text
+Setup → Expert → Add additional Ultrafeeder arguments
+```
+
+Poi controlla:
+
+[Stato del tuo feed](https://adsbitalia.it/status.html)
 
 ## Stato del feeder
 
@@ -346,7 +491,8 @@ La pagina stato supporta:
 
 - feeder classici ADSBItalia;
 - feeder legacy/mux ancora sulla vecchia porta;
-- feeder Ultrafeeder/Docker.
+- feeder Ultrafeeder/Docker;
+- feeder ADSB.im.
 
 Mostra:
 
@@ -362,11 +508,13 @@ Mostra:
 
 ## Aggiornare i dati del feeder
 
-Per aggiornare nome feeder, coordinate o altitudine:
+Per aggiornare nome feeder, coordinate o altitudine su un’installazione classica:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/update.sh -o update.sh && bash update.sh
 ```
+
+Per Ultrafeeder/Docker o ADSB.im, aggiorna i dati dalla piattaforma o dalla configurazione che stai usando.
 
 ## Disinstallazione
 
@@ -378,6 +526,10 @@ curl -fsSL https://raw.githubusercontent.com/djrexishere91/Adsb-Italia/main/unin
 
 La disinstallazione rimuove solo l’integrazione ADSBItalia. Non rimuove il decoder ADS-B locale.
 
+Se la mappa locale opzionale `tar1090` ADSBItalia era stata installata dallo script ADSBItalia, lo script di disinstallazione rimuove anche quella mappa opzionale.
+
+Per Ultrafeeder/Docker o ADSB.im basta rimuovere le righe ADSBItalia dalla configurazione e applicare/riavviare il servizio.
+
 ## File creati dall’installer classico
 
 | Percorso | Descrizione |
@@ -387,6 +539,8 @@ La disinstallazione rimuove solo l’integrazione ADSBItalia. Non rimuove il dec
 | `/etc/systemd/system/adsbitalia-feed.service` | Servizio ADS-B forwarding. |
 | `/etc/systemd/system/adsbitalia-mlat.service` | Servizio MLAT. |
 | directory locale `tar1090` | Mappa locale opzionale, solo se scelta durante l’installazione. |
+
+Questi file non vengono creati se partecipi tramite Ultrafeeder/Docker o ADSB.im.
 
 ## Risoluzione problemi
 
@@ -404,16 +558,17 @@ Ultrafeeder / Docker:
 ```bash
 docker ps | grep -i ultrafeeder
 docker logs -f ultrafeeder
-```
-
-Docker Compose:
-
-```bash
-docker compose ps
 docker compose logs -f ultrafeeder
 ```
 
-Verifica anche che il feed Beast OUT locale esista sulla porta configurata.
+ADSB.im:
+
+- verifica che le righe ADSBItalia siano ancora presenti in **Setup → Expert**;
+- verifica che ogni riga finisca con il punto e virgola;
+- premi di nuovo **Apply** dopo eventuali modifiche;
+- controlla la pagina stato ADSBItalia.
+
+Verifica anche che il feeder locale stia generando dati ADS-B e che le connessioni in uscita verso ADSBItalia siano consentite.
 
 ## Supporto
 
