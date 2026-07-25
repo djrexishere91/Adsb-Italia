@@ -264,7 +264,7 @@ install_mlat_client() {
   fi
 
   sudo "$MLAT_VENV/bin/pip" install "$tmpdir/mlat-client"
-  rm -rf "$tmpdir"
+  sudo rm -rf "$tmpdir"
 }
 
 # ── Systemd feed + MLAT services ─────────────────────────────────────────────
