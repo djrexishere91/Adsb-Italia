@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="ADSBItalia Logo" width="180"/>
+  <img src="assets/logo.png" alt="ADSBItalia Logo" width="380"/>
 </p>
 
 <h1 align="center">📡 ADSBItalia Feeder Client & Integration Scripts</h1>
