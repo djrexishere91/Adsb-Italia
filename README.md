@@ -52,7 +52,7 @@ Use this method if you already have a local decoder running on your host system 
 Run the one-line interactive installer:
 
 ```bash
-curl -fsSL https://adsbitalia.it/install.sh -o install.sh && bash install.sh
+curl -fsSL https://raw.githubusercontent.com/ADSBItalia/Feeding/main/install.sh -o install.sh && bash install.sh
 ```
 *(Alternative GitHub source: `curl -fsSL https://raw.githubusercontent.com/ADSBItalia/Feeding/main/install.sh -o install.sh && bash install.sh`)*
 
@@ -143,13 +143,13 @@ ss -tnp | grep -E '31108|41113'
 ### Updating Station Details
 To update your station coordinates, altitude, or feeder name on a standalone Linux install:
 ```bash
-curl -fsSL https://adsbitalia.it/update.sh -o update.sh && bash update.sh
+curl -fsSL https://raw.githubusercontent.com/ADSBItalia/Feeding/main/update.sh -o update.sh && bash update.sh
 ```
 
 ### Uninstallation
 To completely remove ADSBItalia services and the MLAT environment from your host system:
 ```bash
-curl -fsSL https://adsbitalia.it/uninstall.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/ADSBItalia/Feeding/main/uninstall.sh | sudo bash
 ```
 *(Your underlying `readsb` or `dump1090` decoder and feeds to other networks will remain completely untouched).*
 
