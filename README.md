@@ -38,8 +38,8 @@ Select the setup matching your receiver station:
 │                     CHOOSE YOUR SETUP METHOD                            │
 ├──────────────────────────┬─────────────────────────┬────────────────────┤
 │  1. Standalone Linux Host│  2. Docker Ultrafeeder  │  3. ADSB.im Image  │
-│  (Raspberry Pi, DietPi,  │  (SDR-Enthusiasts stack,│  (Web UI Expert    │
-│   Debian, Ubuntu)        │   docker-compose)       │   arguments)       │
+│  (Raspberry Pi, DietPi,  │  (SDR-Enthusiasts stack,│  (Native 1-click in│
+│   Debian, Ubuntu)        │   docker-compose)       │   Data Sharing)    │
 └──────────────────────────┴─────────────────────────┴────────────────────┘
 ```
 
@@ -85,20 +85,16 @@ ULTRAFEEDER_CONFIG="adsb,adsbitalia.it,31108,beast_reduce_plus_out;mlat,mlat.ads
 
 ---
 
-### Method 3: ADSB.im Feeder Image
+### Method 3: ADSB.im Feeder Image (Native 1-Click Integration)
 
-If you use the plug-and-play **ADSB.im** SDR image, **do NOT run `install.sh`**. Add ADSBItalia directly via the web interface:
+Starting with ADSB.im **v3.0.13 or newer**, ADSBItalia is natively integrated into the ADSB.im web interface! You do not need to run any scripts, open the Expert section, or paste manual arguments.
 
 1. Open your **ADSB.im** web dashboard.
-2. Navigate to **Setup** ➔ **Expert**.
-3. Under **Add additional Ultrafeeder arguments**, paste the following two lines:
+2. Navigate to the **Data Sharing** page.
+3. Locate **ADSBItalia** in the aggregator list.
+4. Check the box for **ADSBItalia** and click **Save** / **Apply**.
 
-```text
-adsb,adsbitalia.it,31108,beast_reduce_plus_out;
-mlat,mlat.adsbitalia.it,41113,39008;
-```
-
-4. Click **Apply Changes**.
+ADSB.im automatically handles both the ADS-B Beast feed and the dedicated MLAT synchronization connections in the background.
 
 ---
 
@@ -116,7 +112,7 @@ mlat,mlat.adsbitalia.it,41113,39008;
 
 ## 🔍 Checking Your Feeder Status
 
-Once installed, check your receiver's live connection and MLAT synchronization status on our public dashboard:
+Once connected, check your receiver's live connection and MLAT synchronization status on our public dashboard:
 
 👉 **[https://adsbitalia.it/status.html](https://adsbitalia.it/status.html)**
 
