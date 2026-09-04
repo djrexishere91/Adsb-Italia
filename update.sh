@@ -1,199 +1,91 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONFIG_FILE="/etc/adsbitalia/feeder.conf"
-MLAT_SERVICE="mlat-italia.service"
-ADSB_SERVICE="adsb-italia.service"
-MLAT_UNIT="/etc/systemd/system/${MLAT_SERVICE}"
-ADSB_UNIT="/etc/systemd/system/${ADSB_SERVICE}"
+if [[ "${EUID}" -ne 0 ]]; then
+  echo "Please run this script with sudo: sudo bash update.sh"
+  exit 1
+fi
 
-SERVER_IP="185.119.19.188"
+CONFIG_DIR="/etc/adsbitalia"
+CONFIG_FILE="${CONFIG_DIR}/feeder.conf"
+
+FEED_HOST="feed.adsbitalia.it"
+MLAT_HOST="mlat.adsbitalia.it"
+FEED_PORT="31108"
 MLAT_PORT="41113"
-FEED_PORT="30004"
-SITE_URL="https://adsbitalia.djrexishere.it"
-REGISTER_URL="https://adsbitalia.djrexishere.it/api/register-feeder"
-REGISTER_TOKEN="6oAEgkdPAYCn1QpgcU8pCNjb_pM3jBr6Zb9j2hKHnPZ4Obnn-RYrwz1o1kl43pEu"
-PUBLIC_IP_SERVICES=("https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com")
+LOCAL_BEAST_PORT_DEFAULT="30005"
+MLAT_RETURN_PORT_DEFAULT="33106"
+SITE_URL="https://adsbitalia.it"
+REGISTER_URL="${SITE_URL}/api/register-feeder"
 
-msg() {
-    echo "[ADSB-Italia] $*"
-}
+if [[ -f "$CONFIG_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$CONFIG_FILE"
+fi
 
-require_root() {
-    if [[ "${EUID}" -ne 0 ]]; then
-        echo "Please run this script as root."
-        exit 1
-    fi
-}
+FEEDER_NAME="${FEEDER_NAME:-}"
+LAT="${LAT:-}"
+LON="${LON:-}"
+ALT="${ALT:-}"
+LOCAL_BEAST_PORT="${LOCAL_BEAST_PORT:-$LOCAL_BEAST_PORT_DEFAULT}"
+MLAT_RETURN_PORT="${MLAT_RETURN_PORT:-$MLAT_RETURN_PORT_DEFAULT}"
+FEEDER_ID="${FEEDER_ID:-}"
+FEEDER_TOKEN="${FEEDER_TOKEN:-}"
 
-require_cmd() {
-    command -v "$1" >/dev/null 2>&1 || {
-        echo "Missing required command: $1"
-        exit 1
-    }
-}
+FEEDER_NAME="$(whiptail --inputbox "Enter feeder name:" 12 60 "$FEEDER_NAME" --title "Update Feeder Configuration" 3>&1 1>&2 2>&3)" || exit 1
+FEEDER_NAME="${FEEDER_NAME// /_}"
 
-check_local_feed() {
-    msg "Checking local Beast feed on localhost:30005..."
-    if ! timeout 3 bash -c '</dev/tcp/127.0.0.1/30005' 2>/dev/null; then
-        whiptail --title "Local feed not found" \
-            --msgbox "No local Beast feed was found on localhost:30005.\n\nPlease start readsb or dump1090 first, then run this script again." 12 70
-        exit 1
-    fi
-}
+LAT="$(whiptail --inputbox "Enter latitude (e.g. 44.8040):" 12 60 "$LAT" --title "Coordinates" 3>&1 1>&2 2>&3)" || exit 1
+LON="$(whiptail --inputbox "Enter longitude (e.g. 11.9730):" 12 60 "$LON" --title "Coordinates" 3>&1 1>&2 2>&3)" || exit 1
+ALT="$(whiptail --inputbox "Enter altitude in meters (e.g. 15):" 12 60 "$ALT" --title "Altitude" 3>&1 1>&2 2>&3)" || exit 1
 
-load_existing_config() {
-    if [[ -f "$CONFIG_FILE" ]]; then
-        # shellcheck disable=SC1090
-        source "$CONFIG_FILE"
-    fi
+LOCAL_BEAST_PORT="$(whiptail --inputbox "Enter local Beast OUT port (e.g. 30005):" 12 60 "$LOCAL_BEAST_PORT" --title "Local Beast OUT Port" 3>&1 1>&2 2>&3)" || exit 1
+MLAT_RETURN_PORT="$(whiptail --inputbox "Enter local MLAT results return port (e.g. 33106):" 12 60 "$MLAT_RETURN_PORT" --title "MLAT Results Return Port" 3>&1 1>&2 2>&3)" || exit 1
 
-    UTENTE="${UTENTE:-}"
-    LAT="${LAT:-}"
-    LON="${LON:-}"
-    ALT="${ALT:-}"
-}
+cat > "$CONFIG_FILE" <<EOFCONF
+FEEDER_ID=${FEEDER_ID}
+FEEDER_TOKEN=${FEEDER_TOKEN}
+FEEDER_NAME=${FEEDER_NAME}
+LAT=${LAT}
+LON=${LON}
+ALT=${ALT}
+LOCAL_BEAST_PORT=${LOCAL_BEAST_PORT}
+FEED_HOST=${FEED_HOST}
+MLAT_HOST=${MLAT_HOST}
+FEED_PORT=${FEED_PORT}
+MLAT_PORT=${MLAT_PORT}
+MLAT_RETURN_PORT=${MLAT_RETURN_PORT}
+SITE_URL=${SITE_URL}
+REGISTER_URL=${REGISTER_URL}
+TAR1090_LOCAL_URL=${TAR1090_LOCAL_URL:-}
+EOFCONF
+chmod 600 "$CONFIG_FILE"
 
-prompt_with_default() {
-    local title="$1"
-    local prompt="$2"
-    local default_value="$3"
-    whiptail --inputbox "$prompt" 10 70 "$default_value" --title "$title" 3>&1 1>&2 2>&3
-}
+# Re-generate systemd services if present
+if [[ -f "/etc/systemd/system/adsbitalia-mlat.service" ]]; then
+  sed -i "s|--user .*|--user ${FEEDER_NAME} \\|g" /etc/systemd/system/adsbitalia-mlat.service
+  sed -i "s|--lat .*|--lat ${LAT} \\|g" /etc/systemd/system/adsbitalia-mlat.service
+  sed -i "s|--lon .*|--lon ${LON} \\|g" /etc/systemd/system/adsbitalia-mlat.service
+  sed -i "s|--alt .*|--alt ${ALT} \\|g" /etc/systemd/system/adsbitalia-mlat.service
+  sed -i "s|--input-connect 127.0.0.1:.*|--input-connect 127.0.0.1:${LOCAL_BEAST_PORT} \\|g" /etc/systemd/system/adsbitalia-mlat.service
+  sed -i "s|--results beast,listen:.*|--results beast,listen,${MLAT_RETURN_PORT}|g" /etc/systemd/system/adsbitalia-mlat.service
+  sed -i "s|--results beast,listen,.*|--results beast,listen,${MLAT_RETURN_PORT}|g" /etc/systemd/system/adsbitalia-mlat.service
+fi
 
-collect_user_data() {
-    UTENTE=$(prompt_with_default "Feeder Configuration" "Enter your feeder name:" "$UTENTE") || exit 1
-    LAT=$(prompt_with_default "Coordinates" "Enter your decimal latitude (example: 44.8300):" "$LAT") || exit 1
-    LON=$(prompt_with_default "Coordinates" "Enter your decimal longitude (example: 11.6200):" "$LON") || exit 1
-    ALT=$(prompt_with_default "Altitude" "Enter altitude in meters (example: 15):" "$ALT") || exit 1
+if [[ -f "/etc/systemd/system/adsbitalia-feed.service" ]]; then
+  sed -i "s|TCP:127.0.0.1:[0-9]*|TCP:127.0.0.1:${LOCAL_BEAST_PORT}|g" /etc/systemd/system/adsbitalia-feed.service
+fi
 
-    [[ -n "$UTENTE" ]] || { echo "Feeder name cannot be empty."; exit 1; }
-    [[ -n "$LAT" ]] || { echo "Latitude cannot be empty."; exit 1; }
-    [[ -n "$LON" ]] || { echo "Longitude cannot be empty."; exit 1; }
-    [[ -n "$ALT" ]] || { echo "Altitude cannot be empty."; exit 1; }
-}
+systemctl daemon-reload
+systemctl restart adsbitalia-feed.service 2>/dev/null || true
+systemctl restart adsbitalia-mlat.service 2>/dev/null || true
+systemctl start adsbitalia-registration.service 2>/dev/null || true
 
-save_config() {
-    msg "Saving local feeder configuration..."
-    install -d -m 755 /etc/adsbitalia
-    cat > "$CONFIG_FILE" <<EOF
-UTENTE=$(printf '%q' "$UTENTE")
-LAT=$(printf '%q' "$LAT")
-LON=$(printf '%q' "$LON")
-ALT=$(printf '%q' "$ALT")
-EOF
-    chmod 600 "$CONFIG_FILE"
-}
+whiptail --title "Update Completed" --msgbox "ADSBItalia feeder settings updated successfully!
 
-detect_public_ip() {
-    for url in "${PUBLIC_IP_SERVICES[@]}"; do
-        PUBLIC_IP=$(curl -4fsS --max-time 10 "$url" 2>/dev/null | tr -d '[:space:]' || true)
-        if [[ "$PUBLIC_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-            return 0
-        fi
-    done
-    return 1
-}
+Feeder: ${FEEDER_NAME}
+Coordinates: ${LAT}, ${LON} (${ALT}m)
+Beast OUT port: ${LOCAL_BEAST_PORT}
+MLAT Return port: ${MLAT_RETURN_PORT}
 
-register_feeder() {
-    msg "Updating feeder registration..."
-
-    if ! detect_public_ip; then
-        whiptail --title "Registration update failed" \
-            --msgbox "Unable to detect this feeder's public IP address.\n\nLocal settings were updated, but the remote registration could not be refreshed automatically." 12 72
-        return 0
-    fi
-
-    HOSTNAME_LOCAL=$(hostname -f 2>/dev/null || hostname)
-
-    PAYLOAD=$(printf '{"user":"%s","host":"%s","hostname":"%s","beast_port":30005,"mlat_port":30105,"lat":"%s","lon":"%s","alt":"%s"}' \
-        "$UTENTE" "$PUBLIC_IP" "$HOSTNAME_LOCAL" "$LAT" "$LON" "$ALT")
-
-    HTTP_CODE=$(curl -kfsS -o /tmp/adsbitalia-register.out -w '%{http_code}' \
-        -H 'Content-Type: application/json' \
-        -H "X-Register-Token: ${REGISTER_TOKEN}" \
-        -d "$PAYLOAD" \
-        "$REGISTER_URL" || true)
-
-    if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "201" ]]; then
-        msg "Remote registration updated successfully."
-    else
-        msg "Remote registration update failed (HTTP ${HTTP_CODE:-error})."
-        msg "Continuing with local service update."
-    fi
-}
-
-write_services() {
-    msg "Updating systemd services..."
-
-    cat <<EOF2 > "$MLAT_UNIT"
-[Unit]
-Description=ADSB-Italia MLAT Client
-Wants=network-online.target
-After=network-online.target
-StartLimitIntervalSec=300
-StartLimitBurst=10
-
-[Service]
-Type=simple
-ExecStart=/opt/adsbitalia-mlat/bin/mlat-client --input-type dump1090 --input-connect localhost:30005 --server ${SERVER_IP}:${MLAT_PORT} --user ${UTENTE} --lat ${LAT} --lon ${LON} --alt ${ALT} --results beast,listen,30105
-Restart=on-failure
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF2
-
-    cat <<EOF2 > "$ADSB_UNIT"
-[Unit]
-Description=ADSB-Italia Beast Feed
-Wants=network-online.target
-After=network-online.target
-StartLimitIntervalSec=300
-StartLimitBurst=10
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/socat -u TCP:127.0.0.1:30005 TCP:${SERVER_IP}:${FEED_PORT}
-Restart=on-failure
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF2
-}
-
-reload_services() {
-    msg "Reloading systemd and restarting feeder services..."
-    systemctl daemon-reload
-    systemctl enable --now "$MLAT_SERVICE"
-    systemctl enable --now "$ADSB_SERVICE"
-    systemctl restart "$MLAT_SERVICE"
-    systemctl restart "$ADSB_SERVICE"
-}
-
-show_status() {
-    MLAT_STATE=$(systemctl is-active "$MLAT_SERVICE" || true)
-    FEED_STATE=$(systemctl is-active "$ADSB_SERVICE" || true)
-
-    whiptail --title "UPDATE COMPLETED" \
-        --msgbox "Your feeder settings have been updated.\n\nService status:\n- MLAT: ${MLAT_STATE}\n- ADS-B feed: ${FEED_STATE}\n\nUpdated values:\n- Feeder name: ${UTENTE}\n- Latitude: ${LAT}\n- Longitude: ${LON}\n- Altitude: ${ALT}\n\nWebsite:\n- ${SITE_URL}" 18 74
-}
-
-main() {
-    require_root
-    require_cmd whiptail
-    require_cmd curl
-    require_cmd systemctl
-
-    load_existing_config
-    check_local_feed
-    collect_user_data
-    save_config
-    register_feeder
-    write_services
-    reload_services
-    show_status
-}
-
-main "$@"
+Services have been reloaded and restarted." 16 68

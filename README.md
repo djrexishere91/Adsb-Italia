@@ -59,10 +59,11 @@ curl -fsSL https://raw.githubusercontent.com/ADSBItalia/Feeding/main/install.sh 
 #### What the installer does:
 1. Detects your local Beast OUT stream (default: `127.0.0.1:30005`).
 2. Prompts for station coordinates (Latitude, Longitude, Altitude) and station name.
-3. Automatically creates and enables systemd background services:
+3. Configures your **Local MLAT Return Port** (default: `33106`, fully customizable) so MLAT aircraft tracked by the network are fed back into your local decoder/map (`tar1090`, `readsb`, `dump1090`).
+4. Automatically creates and enables systemd background services:
    - `adsbitalia-feed.service`: Forwards ADS-B Beast frames to `adsbitalia.it:31108`.
-   - `adsbitalia-mlat.service`: Synchronizes with `mlat.adsbitalia.it:41113` via `mlat-client`.
-4. Optionally installs a dedicated, high-speed local `tar1090` radar map with ADSBItalia styling.
+   - `adsbitalia-mlat.service`: Synchronizes with `mlat.adsbitalia.it:41113` via `mlat-client` and serves local MLAT return results.
+5. Optionally installs a dedicated, high-speed local `tar1090` radar map with ADSBItalia styling.
 
 ---
 

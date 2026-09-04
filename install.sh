@@ -14,7 +14,8 @@ FEED_HOST="feed.adsbitalia.it"
 MLAT_HOST="mlat.adsbitalia.it"
 FEED_PORT="31108"
 MLAT_PORT="41113"
-MLAT_RETURN_PORT="33106"
+MLAT_RETURN_PORT_DEFAULT="33106"
+MLAT_RETURN_PORT="${MLAT_RETURN_PORT_DEFAULT}"
 SITE_URL="https://adsbitalia.it"
 REGISTER_URL="${SITE_URL}/api/register-feeder"
 
@@ -154,6 +155,8 @@ Spaces will be converted to underscores." \
   ALT="$(whiptail --inputbox "Enter altitude in meters.\n\nExample: 5" \
     12 60 "$alt_default" --title "Altitude" 3>&1 1>&2 2>&3)" || exit 1
 
+  local mlat_return_default="${MLAT_RETURN_PORT:-$MLAT_RETURN_PORT_DEFAULT}"
+
   LOCAL_BEAST_PORT="$(whiptail --inputbox "Enter your local Beast OUT port.
 
 Common examples:
@@ -163,6 +166,17 @@ Common examples:
 31005" \
     18 72 "$beast_default" --title "Local Beast OUT Port" 3>&1 1>&2 2>&3)" || exit 1
 
+  MLAT_RETURN_PORT="$(whiptail --inputbox "Enter your local MLAT results return port (listen).
+
+The MLAT client will listen on this port to feed MLAT aircraft positions back to your local decoder/map (readsb/tar1090/dump1090).
+
+Common examples:
+33106 (Default for ADSBItalia)
+39008 (Ultrafeeder standard)
+30105
+30007" \
+    19 74 "$mlat_return_default" --title "MLAT Results Return Port" 3>&1 1>&2 2>&3)" || exit 1
+
   LAT="$(normalize_number "$LAT")"
   LON="$(normalize_number "$LON")"
   ALT="$(normalize_number "$ALT")"
@@ -170,12 +184,14 @@ Common examples:
   [[ -n "$FEEDER_NAME" ]] || fatal "Feeder name cannot be empty."
   [[ -n "$LAT" && -n "$LON" && -n "$ALT" ]] || fatal "Coordinates and altitude cannot be empty."
   [[ -n "$LOCAL_BEAST_PORT" ]] || fatal "Local Beast port cannot be empty."
+  [[ -n "$MLAT_RETURN_PORT" ]] || fatal "MLAT return port cannot be empty."
 
   validate_feeder_name "$FEEDER_NAME" || fatal "Invalid feeder name."
   validate_float "$LAT" || fatal "Invalid latitude."
   validate_float "$LON" || fatal "Invalid longitude."
   validate_float "$ALT" || fatal "Invalid altitude."
   validate_port "$LOCAL_BEAST_PORT" || fatal "Invalid local Beast port."
+  validate_port "$MLAT_RETURN_PORT" || fatal "Invalid MLAT return port."
 }
 
 check_local_feed() {
@@ -651,6 +667,7 @@ MLAT service: ${mlat_state}
 Registration heartbeat: ${heartbeat_state}
 
 Local Beast OUT port: ${LOCAL_BEAST_PORT}
+MLAT results return port: ${MLAT_RETURN_PORT}
 Feed destination: ${FEED_HOST}:${FEED_PORT}
 MLAT destination: ${MLAT_HOST}:${MLAT_PORT}
 
