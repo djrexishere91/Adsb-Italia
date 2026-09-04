@@ -65,6 +65,8 @@ curl -fsSL https://raw.githubusercontent.com/ADSBItalia/Feeding/main/install.sh 
    - `adsbitalia-mlat.service`: Synchronizes with `mlat.adsbitalia.it:41113` via `mlat-client` and serves local MLAT return results.
 5. Optionally installs a dedicated, high-speed local `tar1090` radar map with ADSBItalia styling.
 
+> 💡 **Custom MLAT Return Port**: The installer automatically prompts you for your preferred local MLAT return port (default: `33106`). If you are running multiple receivers or custom decoders, you can specify any unused port (e.g. `30105`, `39008`). The installer configures `readsb` and `adsbitalia-mlat.service` to feed results directly into your local map.
+
 ---
 
 ### Method 2: Docker & Ultrafeeder (SDR-Enthusiasts Stack)
